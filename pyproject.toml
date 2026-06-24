@@ -1,0 +1,38 @@
+[project]
+name = "ardea-sila2"
+version = "0.1.0"
+description = "SiLA2 server for the Ardea device, combining the b-CAP (DENSO robot) and KV COM+ (KEYENCE PLC) providers"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Kazunari Kaizu" }]
+requires-python = ">=3.11"
+dependencies = [
+    "sila2[codegen]>=0.14.0",
+    "typer",
+    "bcap-sila2",
+    "kvcomplus-sila2",
+    "pywin32; sys_platform == 'win32'",
+]
+
+[tool.uv.sources]
+# The provider packages are vendored as git submodules under third_party/ and
+# installed editable so the Ardea server reuses their wrappers and features.
+bcap-sila2 = { path = "third_party/bcap-sila2", editable = true }
+kvcomplus-sila2 = { path = "third_party/kvcomplus-sila2", editable = true }
+# bcap-sila2 depends on orin-bcap (its own submodule); declare the path here too,
+# since dependency-level [tool.uv.sources] is not honored transitively.
+orin-bcap = { path = "third_party/bcap-sila2/third_party/orin_bcap", editable = true }
+
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["ardea_sila2*"]
+
+[tool.setuptools.package-data]
+"ardea_sila2.generated" = [
+    "*/*.sila.xml",
+    "*/*.proto",
+]

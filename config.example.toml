@@ -1,0 +1,31 @@
+# Example configuration for the Ardea SiLA2 server.
+# Copy to e.g. config.toml and adjust, then start the server with:
+#   uv run python -m ardea_sila2 --config config.toml --insecure
+#
+# The Ardea server drives two providers at once, so it merges the configuration
+# of both: [controller]/[task] for the b-CAP robot and [plc] for the KV COM+ PLC.
+
+[controller]
+host = "192.168.0.1"        # robot controller IP / hostname (required)
+port = 5007                 # b-CAP TCP port (required)
+timeout = 5                 # communication timeout in seconds
+type = "RC9"                # controller type; default RC9
+# provider is derived from `type` when omitted (RC9 -> CaoProv.DENSO.VRC9).
+# provider = "CaoProv.DENSO.VRC9"
+name = "b-CAP"              # controller_connect name
+machine = "localhost"      # controller_connect machine
+option = ""                 # controller_connect option
+
+[task]
+poll_interval_seconds = 0.5        # how often RunTask polls the task status
+start_timeout_seconds = 5          # max wait for the task to reach the running state
+completion_timeout_seconds = 300   # max wait for the task to finish (0 = no limit)
+
+[plc]
+peer = "192.168.0.10:8500"                # PLC connection target "IP:port" (required)
+plc_id = 545                              # PLC model id; 545 = DBPLC_DKV8K (KV-8000) (required)
+progid = "DataBuilderAxLB.DBCommManager"  # KV COM+ DBCommManager COM ProgID (optional; default shown)
+
+[server]
+host = "0.0.0.0"          # SiLA server listen address
+port = 50053              # SiLA server listen port
