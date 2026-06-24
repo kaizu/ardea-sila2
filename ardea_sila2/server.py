@@ -3,7 +3,7 @@
 Exposes both providers at once by reusing the feature implementations from the
 ``bcap_sila2`` and ``kvcomplus_sila2`` packages (vendored as git submodules):
 
-- b-CAP / DENSO robot: VariableService, TaskService
+- b-CAP / DENSO robot: VariableService, TaskService, RobotService
 - KV COM+ / KEYENCE PLC: DeviceService, ConnectionService
 
 Ardea-specific orchestration features (e.g. the travel-carriage move ⇔ robot
@@ -18,8 +18,10 @@ from uuid import UUID, uuid4
 from sila2.server import SilaServer
 
 # Reused b-CAP (DENSO robot) provider
+from bcap_sila2.feature_implementations.robotservice_impl import RobotServiceImpl
 from bcap_sila2.feature_implementations.taskservice_impl import TaskServiceImpl
 from bcap_sila2.feature_implementations.variableservice_impl import VariableServiceImpl
+from bcap_sila2.generated.robotservice import RobotServiceFeature
 from bcap_sila2.generated.taskservice import TaskServiceFeature
 from bcap_sila2.generated.variableservice import VariableServiceFeature
 
@@ -71,6 +73,9 @@ class Server(SilaServer):
 
         self.taskservice = TaskServiceImpl(self)
         self.set_feature_implementation(TaskServiceFeature, self.taskservice)
+
+        self.robotservice = RobotServiceImpl(self)
+        self.set_feature_implementation(RobotServiceFeature, self.robotservice)
 
         # --- KV COM+ / KEYENCE PLC provider ---
         self.deviceservice = DeviceServiceImpl(self)
