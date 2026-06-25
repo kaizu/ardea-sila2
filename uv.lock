@@ -246,14 +246,14 @@ name = "kvcomplus-sila2"
 version = "0.1.0"
 source = { editable = "third_party/kvcomplus-sila2" }
 dependencies = [
-    { name = "pywin32", marker = "sys_platform == 'win32'" },
+    { name = "msl-loadlib" },
     { name = "sila2", extra = ["codegen"] },
     { name = "typer" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "pywin32", marker = "sys_platform == 'win32'" },
+    { name = "msl-loadlib", specifier = ">=0.10.0" },
     { name = "sila2", extras = ["codegen"], specifier = ">=0.14.0" },
     { name = "typer" },
 ]
@@ -453,6 +453,22 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729, upload-time = "2022-08-14T12:40:10.846Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979, upload-time = "2022-08-14T12:40:09.779Z" },
+]
+
+[[package]]
+name = "msl-loadlib"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/95/ca/d9c472576fee4a51e978b89ac1471bf63625c7cba59483a848094d435c3c/msl_loadlib-1.0.0.tar.gz", hash = "sha256:7874e5a1aa5f894c4d44c26735e991d3e96d86bc5bf00bb83afa13beee2a2d96", size = 39609686, upload-time = "2025-06-09T04:53:35.975Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5b/4c/a672095da239516d985b7a3f6f22c84b95e6280251ef541facfcc8b42227/msl_loadlib-1.0.0-py3-none-macosx_10_6_x86_64.whl", hash = "sha256:42c9f48dc2fd2345cda1c42563915bfd4c6eec7cd4f3d6da5f211e0e9436ef1f", size = 272838, upload-time = "2025-06-09T04:52:47.309Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/ba/4e52c41c921adaa2f25dcd9073f4a858914c78b3f107bb6befc37d7e3cee/msl_loadlib-1.0.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:8dc4492b9e7d0d03af2931d748cf49c6bdcbb9517e9223f7d6798b9c8f581cc2", size = 81327, upload-time = "2025-06-09T04:52:48.807Z" },
+    { url = "https://files.pythonhosted.org/packages/ee/26/8606fa371cb40ccc1d0625e64ed56dc42a7c194e4923f162a7a94ebc5137/msl_loadlib-1.0.0-py3-none-manylinux1_i686.whl", hash = "sha256:8b634e96de917d026266266158cfc0224979aa29c4105384488586d5dd7931d4", size = 26805285, upload-time = "2025-06-09T04:52:55.613Z" },
+    { url = "https://files.pythonhosted.org/packages/7d/e8/531ab979238eef67fee37ffc17937ce28c60680ec490a42c936c5f8926dc/msl_loadlib-1.0.0-py3-none-manylinux1_x86_64.whl", hash = "sha256:4b32bbf6591fc2e6e8a16cb8fd02b9885fa65720e3ec6035cee0a9dab2f39e27", size = 26815096, upload-time = "2025-06-09T04:53:05.594Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/31/500d873efc1b93effc73c51cc0ac7c49f3775dce2f57318a3169383a7bbf/msl_loadlib-1.0.0-py3-none-musllinux_1_1_aarch64.whl", hash = "sha256:e2dfd7f21ca7eb09a4e5367ac5bab90dab8f42600b159a26843e77af8c0dafb0", size = 75963, upload-time = "2025-06-09T04:53:08.528Z" },
+    { url = "https://files.pythonhosted.org/packages/da/e7/00de424d1ac966b4f8b22c539aa0b215c383cd25288935f507318f099672/msl_loadlib-1.0.0-py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:7561da866e4aedb87bc9a093dc585cb47ad0db2f2e5bb19a6d3a047e8e307bb3", size = 75962, upload-time = "2025-06-09T04:53:09.944Z" },
+    { url = "https://files.pythonhosted.org/packages/19/d2/da53bf011349923f0d68e5b2eb592961ed6f9f61f3467065fbdc2f048238/msl_loadlib-1.0.0-py3-none-win32.whl", hash = "sha256:a6244eab6e5e12943aa8eb80ce746274220d80f7688ac165fadeed6a39efeaed", size = 12692261, upload-time = "2025-06-09T04:53:15.261Z" },
+    { url = "https://files.pythonhosted.org/packages/be/cc/8059768f00ae67344e1190517ae48a369e8b163764c20fbb93801b704e25/msl_loadlib-1.0.0-py3-none-win_amd64.whl", hash = "sha256:dc19e8b34b3816e24ee6b3a62f38a938c495ce1f48f2ea7fd475b9a77e1cbcfe", size = 12692265, upload-time = "2025-06-09T04:53:21.901Z" },
 ]
 
 [[package]]
