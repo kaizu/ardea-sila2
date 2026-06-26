@@ -12,6 +12,7 @@ their settings from ``self.parent_server.config`` (``.controller`` / ``.task``
 for b-CAP, ``.plc`` for KV COM+), which the Ardea :class:`Config` provides.
 """
 
+import logging
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -26,12 +27,15 @@ from bcap_sila2.generated.taskservice import TaskServiceFeature
 from bcap_sila2.generated.variableservice import VariableServiceFeature
 
 # Reused KV COM+ (KEYENCE PLC) provider
+from kvcomplus_sila2 import kvcomplus
 from kvcomplus_sila2.feature_implementations.connectionservice_impl import ConnectionServiceImpl
 from kvcomplus_sila2.feature_implementations.deviceservice_impl import DeviceServiceImpl
 from kvcomplus_sila2.generated.connectionservice import ConnectionServiceFeature
 from kvcomplus_sila2.generated.deviceservice import DeviceServiceFeature
 
 from .config import Config
+
+logger = logging.getLogger(__name__)
 
 
 class Server(SilaServer):
@@ -83,3 +87,24 @@ class Server(SilaServer):
 
         self.connectionservice = ConnectionServiceImpl(self)
         self.set_feature_implementation(ConnectionServiceFeature, self.connectionservice)
+
+        # Pre-warm the persistent KV COM+ connection so its cost is paid at
+        # startup rather than on the first command. Non-fatal if the PLC is
+        # unreachable now — operations reconnect lazily. (The KV COM+ side is
+        # held open for the server lifetime; see kvcomplus_sila2.kvcomplus.)
+        try:
+            info = kvcomplus.connect(self.config.plc)
+            logger.info("KV COM+ connected at startup: %s", info)
+        except kvcomplus.KvComError as e:
+            logger.warning(
+                "KV COM+ not connected at startup (will retry on first command): %s", e
+            )
+
+    def stop(self, *args, **kwargs):
+        # Shut down the 32-bit KV COM+ bridge subprocess (if it was ever started)
+        # and release the held PLC connection, after the gRPC server has stopped
+        # accepting commands. b-CAP needs no teardown (pure-Python, per-op socket).
+        try:
+            return super().stop(*args, **kwargs)
+        finally:
+            kvcomplus.shutdown()

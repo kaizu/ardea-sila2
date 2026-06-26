@@ -25,6 +25,10 @@ completion_timeout_seconds = 300   # max wait for the task to finish (0 = no lim
 peer = "192.168.0.10:8500"                # PLC connection target "IP:port" (required)
 plc_id = 545                              # PLC model id; 545 = DBPLC_DKV8K (KV-8000) (required)
 progid = "DataBuilderAxLB.DBCommManager"  # KV COM+ DBCommManager COM ProgID (optional; default shown)
+# The KV COM+ connection is held open for the server lifetime. These timeouts keep
+# a wedged COM call from freezing the server (optional; defaults shown).
+op_timeout = 15.0                         # per-operation deadline [s]; on timeout the bridge is killed & rebuilt
+startup_timeout = 10.0                    # max wait for the 32-bit bridge subprocess to start [s]
 
 [server]
 host = "0.0.0.0"          # SiLA server listen address
