@@ -34,7 +34,9 @@ from kvcomplus_sila2.generated.connectionservice import ConnectionServiceFeature
 from kvcomplus_sila2.generated.deviceservice import DeviceServiceFeature
 
 # Ardea-specific orchestration features
+from .feature_implementations.carriageservice_impl import CarriageServiceImpl
 from .feature_implementations.robotposeservice_impl import RobotPoseServiceImpl
+from .generated.carriageservice import CarriageServiceFeature
 from .generated.robotposeservice import RobotPoseServiceFeature
 
 from .config import Config
@@ -100,6 +102,9 @@ class Server(SilaServer):
         # --- Ardea-specific orchestration features ---
         self.robotposeservice = RobotPoseServiceImpl(self)
         self.set_feature_implementation(RobotPoseServiceFeature, self.robotposeservice)
+
+        self.carriageservice = CarriageServiceImpl(self)
+        self.set_feature_implementation(CarriageServiceFeature, self.carriageservice)
 
         # Pre-warm the persistent KV COM+ connection so its cost is paid at
         # startup rather than on the first command. Non-fatal if the PLC is

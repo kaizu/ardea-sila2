@@ -14,3 +14,11 @@ tolerance_deg    = 0.05   # loosened from 0.01: retract-pose J3 varied ~0.02° d
 [retract_pose]   # retract pose. Carriage move allowed at base_pose OR retract_pose.
 joint_angles_deg = [90.007, 25.003, -114.999, 120.002, 89.998, -89.999]
 tolerance_deg    = 0.05
+
+[carriage]                  # travel-carriage motion parameters (fixed; not command args)
+default_speed_mm_s = 50     # positioning speed [mm/s]
+accel_mm_s_ms      = 1      # accel/decel [mm/s/ms]
+range_min_mm       = 0      # lower travel bound [mm]
+range_max_mm       = 2600   # upper travel bound [mm]
+move_timeout_s     = 60     # max wait for a move to complete [s]
+poll_interval_s    = 0.2    # status/position poll interval [s]

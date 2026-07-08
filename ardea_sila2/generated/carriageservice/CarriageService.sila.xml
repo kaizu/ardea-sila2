@@ -1,0 +1,117 @@
+<Feature xmlns="http://www.sila-standard.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Category="ardea" FeatureVersion="1.0" MaturityLevel="Draft" Originator="jp.riken" SiLA2Version="1.0" xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
+  <Identifier>CarriageService</Identifier>
+  <DisplayName>Carriage Service</DisplayName>
+  <Description>Ardea travel-carriage orchestration over the KEYENCE PLC (KV COM+). Reports the
+    carriage position and moves the carriage to a target, but only when the DENSO
+    robot is at a movable pose (base or retract). The move writes target/speed/accel,
+    raises the move-request bit, waits for completion, and always clears the request
+    bit afterwards. Speed and acceleration are fixed in the motion configuration.</Description>
+  <!-- Commands -->
+  <Command>
+    <Identifier>MoveCarriage</Identifier>
+    <DisplayName>Move Carriage</DisplayName>
+    <Description>Move the travel carriage to the target given by StationId, but only if the
+      robot is at the base or retract pose and the carriage is ready. Intermediate
+      responses report the current position [mm] while moving; the request bit is
+      always cleared when the command finishes.</Description>
+    <Observable>Yes</Observable>
+    <Parameter>
+      <Identifier>StationId</Identifier>
+      <DisplayName>Station Id</DisplayName>
+      <Description>Target station identifier. For now this is parsed as an integer millimetre
+        position and used directly as the target (temporary; it will become a fixed
+        station-number-to-millimetre mapping later).</Description>
+      <DataType>
+        <Basic>String</Basic>
+      </DataType>
+    </Parameter>
+    <Response>
+      <Identifier>FinalPosition</Identifier>
+      <DisplayName>Final Position</DisplayName>
+      <Description>The carriage position [mm] after the move completed.</Description>
+      <DataType>
+        <Basic>Real</Basic>
+      </DataType>
+    </Response>
+    <IntermediateResponse>
+      <Identifier>CurrentPosition</Identifier>
+      <DisplayName>Current Position</DisplayName>
+      <Description>The carriage position [mm] observed during the move.</Description>
+      <DataType>
+        <Basic>Real</Basic>
+      </DataType>
+    </IntermediateResponse>
+    <DefinedExecutionErrors>
+      <Identifier>RobotNotInMovablePose</Identifier>
+      <Identifier>InvalidStation</Identifier>
+      <Identifier>CarriageNotReady</Identifier>
+      <Identifier>CarriageFault</Identifier>
+      <Identifier>MoveTimeout</Identifier>
+      <Identifier>PlcConnectionError</Identifier>
+      <Identifier>PlcAccessError</Identifier>
+      <Identifier>ControllerConnectionError</Identifier>
+      <Identifier>RobotAccessError</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+  <!-- Properties -->
+  <Property>
+    <Identifier>CarriagePosition</Identifier>
+    <DisplayName>Carriage Position</DisplayName>
+    <Description>The current travel-carriage position [mm] (signed 32-bit device D6010),
+      streamed periodically to subscribers.</Description>
+    <Observable>Yes</Observable>
+    <DataType>
+      <Basic>Real</Basic>
+    </DataType>
+    <DefinedExecutionErrors>
+      <Identifier>PlcConnectionError</Identifier>
+      <Identifier>PlcAccessError</Identifier>
+    </DefinedExecutionErrors>
+  </Property>
+  <!-- Command / property execution errors -->
+  <DefinedExecutionError>
+    <Identifier>RobotNotInMovablePose</Identifier>
+    <DisplayName>Robot Not In Movable Pose</DisplayName>
+    <Description>The robot is at neither the base pose nor the retract pose, so the carriage may not move.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>InvalidStation</Identifier>
+    <DisplayName>Invalid Station</DisplayName>
+    <Description>The StationId is not a valid integer, or the resulting target is outside the travel range.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>CarriageNotReady</Identifier>
+    <DisplayName>Carriage Not Ready</DisplayName>
+    <Description>The carriage is not in an operable state (move-complete signal off or still moving).</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>CarriageFault</Identifier>
+    <DisplayName>Carriage Fault</DisplayName>
+    <Description>The PLC reports a carriage fault/alarm.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>MoveTimeout</Identifier>
+    <DisplayName>Move Timeout</DisplayName>
+    <Description>The move did not complete within the configured timeout.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>PlcConnectionError</Identifier>
+    <DisplayName>PLC Connection Error</DisplayName>
+    <Description>Failed to connect to or communicate with the PLC over KV COM+.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>PlcAccessError</Identifier>
+    <DisplayName>PLC Access Error</DisplayName>
+    <Description>Failed to read or write a PLC device.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>ControllerConnectionError</Identifier>
+    <DisplayName>Controller Connection Error</DisplayName>
+    <Description>Failed to connect to or communicate with the robot controller over b-CAP (pose check).</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>RobotAccessError</Identifier>
+    <DisplayName>Robot Access Error</DisplayName>
+    <Description>Failed to acquire the robot or read the current joint angles (pose check).</Description>
+  </DefinedExecutionError>
+</Feature>
