@@ -69,10 +69,33 @@ class CarriageConfig:
 
 
 @dataclass
+class HandConfig:
+    """Hand (gripper) motion parameters. Grip force is fixed per the hand doc."""
+
+    closed_position: int = 0     # D5050 fully closed
+    open_position: int = 140     # D5050 fully open
+    speed: int = 0               # D5060 0=slowest .. 255=fastest
+    grip_force: int = 1          # D5070 fixed
+    move_timeout_s: float = 30.0
+
+
+@dataclass
+class PacScriptConfig:
+    """DENSO task (PAC program) names run via b-CAP TaskService.RunTask."""
+
+    pick_approach: str = "PickUp0"   # approach / grab position
+    pick_retract: str = "PickUp1"    # retract -> ends at the retract pose
+    put_approach: str = ""           # (Put not implemented yet)
+    put_retract: str = ""
+
+
+@dataclass
 class MotionConfig:
     base_pose: PoseConfig     # home/origin pose
     retract_pose: PoseConfig  # retract pose
     carriage: CarriageConfig = field(default_factory=CarriageConfig)
+    hand: HandConfig = field(default_factory=HandConfig)
+    pacscripts: PacScriptConfig = field(default_factory=PacScriptConfig)
 
 
 def _build_pose(data: Any, section: str) -> PoseConfig:
@@ -117,6 +140,41 @@ def _build_carriage(data: Any) -> CarriageConfig:
     return c
 
 
+def _build_hand(data: Any) -> HandConfig:
+    if data is None:
+        return HandConfig()
+    if not isinstance(data, dict):
+        raise MotionConfigError("[hand] must be a table.")
+    known = {f.name for f in dataclasses.fields(HandConfig)}
+    unknown = set(data) - known
+    if unknown:
+        raise MotionConfigError(f"Unknown key(s) in [hand]: {', '.join(sorted(unknown))}")
+    h = HandConfig(**{**dataclasses.asdict(HandConfig()), **data})
+    if not (0 <= h.closed_position <= h.open_position):
+        raise MotionConfigError("[hand] must satisfy 0 <= closed_position <= open_position.")
+    if not (0 <= h.speed <= 255):
+        raise MotionConfigError("[hand] speed must be 0..255.")
+    if h.move_timeout_s <= 0:
+        raise MotionConfigError("[hand] move_timeout_s must be > 0.")
+    return h
+
+
+def _build_pacscripts(data: Any) -> PacScriptConfig:
+    if data is None:
+        return PacScriptConfig()
+    if not isinstance(data, dict):
+        raise MotionConfigError("[pacscripts] must be a table.")
+    known = {f.name for f in dataclasses.fields(PacScriptConfig)}
+    unknown = set(data) - known
+    if unknown:
+        raise MotionConfigError(f"Unknown key(s) in [pacscripts]: {', '.join(sorted(unknown))}")
+    p = PacScriptConfig(**{**dataclasses.asdict(PacScriptConfig()), **data})
+    # Pick task names are required (Put is optional until implemented).
+    if not p.pick_approach or not p.pick_retract:
+        raise MotionConfigError("[pacscripts] pick_approach and pick_retract must be non-empty.")
+    return p
+
+
 def load_motion_config(path: str | Path) -> MotionConfig:
     """Load and validate the motion configuration from a TOML file.
 
@@ -133,15 +191,22 @@ def load_motion_config(path: str | Path) -> MotionConfig:
     base = _build_pose(data.get("base_pose"), "base_pose")
     retract = _build_pose(data.get("retract_pose"), "retract_pose")
     carriage = _build_carriage(data.get("carriage"))
-    cfg = MotionConfig(base_pose=base, retract_pose=retract, carriage=carriage)
+    hand = _build_hand(data.get("hand"))
+    pacscripts = _build_pacscripts(data.get("pacscripts"))
+    cfg = MotionConfig(
+        base_pose=base, retract_pose=retract, carriage=carriage, hand=hand, pacscripts=pacscripts
+    )
 
     logger.info(
         "Motion config loaded from %s: base_pose=%s (tol %.4f deg), retract_pose=%s (tol %.4f deg), "
-        "carriage(speed=%d mm/s, accel=%d, range=%d..%d mm, move_timeout=%.1fs, poll=%.2fs)",
+        "carriage(speed=%d mm/s, accel=%d, range=%d..%d mm, move_timeout=%.1fs, poll=%.2fs), "
+        "hand(closed=%d, open=%d, speed=%d, force=%d), pacscripts(pick=%s/%s)",
         path, base.joint_angles_deg, base.tolerance_deg,
         retract.joint_angles_deg, retract.tolerance_deg,
         carriage.default_speed_mm_s, carriage.accel_mm_s_ms,
         carriage.range_min_mm, carriage.range_max_mm,
         carriage.move_timeout_s, carriage.poll_interval_s,
+        hand.closed_position, hand.open_position, hand.speed, hand.grip_force,
+        pacscripts.pick_approach, pacscripts.pick_retract,
     )
     return cfg

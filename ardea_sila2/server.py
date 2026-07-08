@@ -13,6 +13,7 @@ for b-CAP, ``.plc`` for KV COM+), which the Ardea :class:`Config` provides.
 """
 
 import logging
+import threading
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -35,8 +36,10 @@ from kvcomplus_sila2.generated.deviceservice import DeviceServiceFeature
 
 # Ardea-specific orchestration features
 from .feature_implementations.carriageservice_impl import CarriageServiceImpl
+from .feature_implementations.labwareservice_impl import LabwareServiceImpl
 from .feature_implementations.robotposeservice_impl import RobotPoseServiceImpl
 from .generated.carriageservice import CarriageServiceFeature
+from .generated.labwareservice import LabwareServiceFeature
 from .generated.robotposeservice import RobotPoseServiceFeature
 
 from .config import Config
@@ -60,6 +63,12 @@ class Server(SilaServer):
         # Motion / calibration values (named poses, etc.) read by Ardea-specific
         # feature implementations via ``self.parent_server.motion``.
         self.motion = motion
+
+        # OperationCoordinator: a single process-wide lock making robot and carriage
+        # motion mutually exclusive. CarriageService.MoveCarriage and (later)
+        # LabwareService Pick/Put acquire it so a carriage move and a robot pick can
+        # never run at the same time.
+        self.operation_lock = threading.Lock()
 
         if name is None:
             name = "Ardea SiLA2 Server"
@@ -105,6 +114,9 @@ class Server(SilaServer):
 
         self.carriageservice = CarriageServiceImpl(self)
         self.set_feature_implementation(CarriageServiceFeature, self.carriageservice)
+
+        self.labwareservice = LabwareServiceImpl(self)
+        self.set_feature_implementation(LabwareServiceFeature, self.labwareservice)
 
         # Pre-warm the persistent KV COM+ connection so its cost is paid at
         # startup rather than on the first command. Non-fatal if the PLC is

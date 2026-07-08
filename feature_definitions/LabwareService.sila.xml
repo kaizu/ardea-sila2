@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Feature SiLA2Version="1.0" FeatureVersion="1.0" MaturityLevel="Draft" Originator="jp.riken" Category="ardea"
+         xmlns="http://www.sila-standard.org"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
+  <Identifier>LabwareService</Identifier>
+  <DisplayName>Labware Service</DisplayName>
+  <Description>
+    Ardea labware handling: pick (and later put) a labware by orchestrating the
+    DENSO robot (b-CAP tasks) and the KEYENCE hand (KV COM+). PickLabware runs the
+    approach task, closes the hand, runs the retract task, and confirms the robot
+    returned to the retract pose. Only allowed when the robot starts at a movable
+    pose (base or retract). The robot-operating signal locks the carriage out
+    during robot motion and is always cleared afterwards.
+  </Description>
+
+  <!-- Commands -->
+  <Command>
+    <Identifier>PickLabware</Identifier>
+    <DisplayName>Pick Labware</DisplayName>
+    <Description>
+      Pick a labware: verify the robot is at a movable pose, run the pick-approach
+      task, close the hand, run the pick-retract task (which returns the robot to
+      the retract pose), and confirm the retract pose. Intermediate responses report
+      the current phase. The robot-operating signal is set during robot motion and
+      always cleared when the command finishes.
+    </Description>
+    <Observable>Yes</Observable>
+    <Response>
+      <Identifier>AtRetractPose</Identifier>
+      <DisplayName>At Retract Pose</DisplayName>
+      <Description>True if the robot ended at the retract pose after the pick.</Description>
+      <DataType>
+        <Basic>Boolean</Basic>
+      </DataType>
+    </Response>
+    <IntermediateResponse>
+      <Identifier>Phase</Identifier>
+      <DisplayName>Phase</DisplayName>
+      <Description>The current phase of the pick sequence.</Description>
+      <DataType>
+        <Basic>String</Basic>
+      </DataType>
+    </IntermediateResponse>
+    <DefinedExecutionErrors>
+      <Identifier>RobotNotInMovablePose</Identifier>
+      <Identifier>PoseNotRestored</Identifier>
+      <Identifier>ControllerConnectionError</Identifier>
+      <Identifier>RobotAccessError</Identifier>
+      <Identifier>TaskExecutionTimeout</Identifier>
+      <Identifier>TaskAccessError</Identifier>
+      <Identifier>PlcConnectionError</Identifier>
+      <Identifier>PlcAccessError</Identifier>
+      <Identifier>HandError</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+
+  <!-- Command execution errors -->
+  <DefinedExecutionError>
+    <Identifier>RobotNotInMovablePose</Identifier>
+    <DisplayName>Robot Not In Movable Pose</DisplayName>
+    <Description>The robot is at neither the base pose nor the retract pose, so the pick cannot start.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>PoseNotRestored</Identifier>
+    <DisplayName>Pose Not Restored</DisplayName>
+    <Description>The robot did not return to the retract pose after the pick-retract task.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>ControllerConnectionError</Identifier>
+    <DisplayName>Controller Connection Error</DisplayName>
+    <Description>Failed to connect to or communicate with the robot controller over b-CAP.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>RobotAccessError</Identifier>
+    <DisplayName>Robot Access Error</DisplayName>
+    <Description>Failed to acquire the robot or read the current joint angles.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>TaskExecutionTimeout</Identifier>
+    <DisplayName>Task Execution Timeout</DisplayName>
+    <Description>A DENSO task (PAC program) did not start or finish within the configured timeout.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>TaskAccessError</Identifier>
+    <DisplayName>Task Access Error</DisplayName>
+    <Description>A DENSO task failed to run or stopped abnormally.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>PlcConnectionError</Identifier>
+    <DisplayName>PLC Connection Error</DisplayName>
+    <Description>Failed to connect to or communicate with the PLC over KV COM+.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>PlcAccessError</Identifier>
+    <DisplayName>PLC Access Error</DisplayName>
+    <Description>Failed to read or write a PLC device.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>HandError</Identifier>
+    <DisplayName>Hand Error</DisplayName>
+    <Description>The hand failed to activate or to complete a chuck/unchuck within the timeout.</Description>
+  </DefinedExecutionError>
+</Feature>

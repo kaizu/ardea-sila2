@@ -22,3 +22,16 @@ range_min_mm       = 0      # lower travel bound [mm]
 range_max_mm       = 2600   # upper travel bound [mm]
 move_timeout_s     = 60     # max wait for a move to complete [s]
 poll_interval_s    = 0.2    # status/position poll interval [s]
+
+[hand]                      # gripper motion parameters (grip force fixed per hand doc)
+closed_position = 0         # D5050 fully closed
+open_position   = 140       # D5050 fully open
+speed           = 0         # D5060 0=slowest..255=fastest
+grip_force      = 1         # D5070 fixed
+move_timeout_s  = 30
+
+[pacscripts]                # DENSO task names run via TaskService.RunTask
+pick_approach = "PickUp0"   # approach / grab position
+pick_retract  = "PickUp1"   # retract -> ends at the retract pose
+put_approach  = ""          # (Put not implemented yet)
+put_retract   = ""

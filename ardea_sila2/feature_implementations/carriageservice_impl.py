@@ -60,9 +60,6 @@ _START_TIMEOUT_S = 10.0    # max wait for the PLC to acknowledge the move start
 class CarriageServiceImpl(CarriageServiceBase):
     def __init__(self, parent_server: Server) -> None:
         super().__init__(parent_server=parent_server)
-        # Serialize moves (a lightweight OperationCoordinator; the full robot/carriage
-        # interlock shared with LabwareService comes in a later step).
-        self._move_lock = threading.Lock()
         self._poller_started = False
         self._poller_lock = threading.Lock()
 
@@ -137,8 +134,8 @@ class CarriageServiceImpl(CarriageServiceBase):
                 f"target {target} mm is outside the travel range {car.range_min_mm}..{car.range_max_mm}."
             )
 
-        # One move at a time.
-        with self._move_lock:
+        # One motion at a time (shared robot/carriage OperationCoordinator).
+        with self.parent_server.operation_lock:
             # Pose gate: robot must be at the base or retract pose.
             if not self._robot_in_movable_pose():
                 raise RobotNotInMovablePose(
