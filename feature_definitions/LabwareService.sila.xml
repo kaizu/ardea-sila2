@@ -57,7 +57,52 @@
     </DefinedExecutionErrors>
   </Command>
 
+  <Command>
+    <Identifier>PutLabware</Identifier>
+    <DisplayName>Put Labware</DisplayName>
+    <Description>
+      Place a labware: verify the robot is at the retract pose (not the base pose)
+      and the carriage is at the origin, run the approach task, open the hand, run
+      the retract task (which returns the robot to the retract pose), and confirm
+      the retract pose. Intermediate responses report the current phase.
+    </Description>
+    <Observable>Yes</Observable>
+    <Response>
+      <Identifier>AtRetractPose</Identifier>
+      <DisplayName>At Retract Pose</DisplayName>
+      <Description>True if the robot ended at the retract pose after the put.</Description>
+      <DataType>
+        <Basic>Boolean</Basic>
+      </DataType>
+    </Response>
+    <IntermediateResponse>
+      <Identifier>Phase</Identifier>
+      <DisplayName>Phase</DisplayName>
+      <Description>The current phase of the put sequence.</Description>
+      <DataType>
+        <Basic>String</Basic>
+      </DataType>
+    </IntermediateResponse>
+    <DefinedExecutionErrors>
+      <Identifier>RobotNotAtRetractPose</Identifier>
+      <Identifier>CarriageNotAtOrigin</Identifier>
+      <Identifier>PoseNotRestored</Identifier>
+      <Identifier>ControllerConnectionError</Identifier>
+      <Identifier>RobotAccessError</Identifier>
+      <Identifier>TaskExecutionTimeout</Identifier>
+      <Identifier>TaskAccessError</Identifier>
+      <Identifier>PlcConnectionError</Identifier>
+      <Identifier>PlcAccessError</Identifier>
+      <Identifier>HandError</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+
   <!-- Command execution errors -->
+  <DefinedExecutionError>
+    <Identifier>RobotNotAtRetractPose</Identifier>
+    <DisplayName>Robot Not At Retract Pose</DisplayName>
+    <Description>The robot is not at the retract pose, which PutLabware requires (the base pose is not allowed).</Description>
+  </DefinedExecutionError>
   <DefinedExecutionError>
     <Identifier>RobotNotInMovablePose</Identifier>
     <DisplayName>Robot Not In Movable Pose</DisplayName>

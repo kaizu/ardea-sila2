@@ -8,6 +8,13 @@ from sila2.framework.errors.defined_execution_error import DefinedExecutionError
 from .labwareservice_feature import LabwareServiceFeature
 
 
+class RobotNotAtRetractPose(DefinedExecutionError):
+    def __init__(self, message: Optional[str] = None):
+        if message is None:
+            message = "The robot is not at the retract pose, which PutLabware requires (the base pose is not allowed)."
+        super().__init__(LabwareServiceFeature.defined_execution_errors["RobotNotAtRetractPose"], message=message)
+
+
 class RobotNotInMovablePose(DefinedExecutionError):
     def __init__(self, message: Optional[str] = None):
         if message is None:

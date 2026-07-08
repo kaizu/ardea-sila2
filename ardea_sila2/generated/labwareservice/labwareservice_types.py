@@ -12,9 +12,25 @@ class PickLabware_Responses(NamedTuple):
     """
 
 
+class PutLabware_Responses(NamedTuple):
+
+    AtRetractPose: bool
+    """
+    True if the robot ended at the retract pose after the put.
+    """
+
+
 class PickLabware_IntermediateResponses(NamedTuple):
 
     Phase: str
     """
     The current phase of the pick sequence.
+    """
+
+
+class PutLabware_IntermediateResponses(NamedTuple):
+
+    Phase: str
+    """
+    The current phase of the put sequence.
     """

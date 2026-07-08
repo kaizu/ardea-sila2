@@ -46,7 +46,10 @@ from ..generated.labwareservice import (
     PlcAccessError,
     PlcConnectionError,
     PoseNotRestored,
+    PutLabware_IntermediateResponses,
+    PutLabware_Responses,
     RobotAccessError,
+    RobotNotAtRetractPose,
     RobotNotInMovablePose,
     TaskAccessError,
     TaskExecutionTimeout,
@@ -121,10 +124,11 @@ class LabwareServiceImpl(LabwareServiceBase):
     def _hand_status(self) -> int:
         return self._kv(lambda: kvcomplus.read_word(self._plc(), DM, HAND_STATUS))
 
-    def _chuck(self) -> None:
-        """Close the hand (activate if needed, move to closed position, wait done).
+    def _hand_move(self, target: int) -> None:
+        """Move the hand to ``target`` (activate if needed, write params, wait done).
 
-        Grasp success (D6002.6) is deliberately not checked here (test without labware).
+        Used for both chuck (target=closed) and unchuck (target=open). Grasp success
+        (D6002.6) is deliberately not checked here (test without labware).
         """
         plc = self._plc()
         h = self.parent_server.motion.hand
@@ -143,7 +147,7 @@ class LabwareServiceImpl(LabwareServiceBase):
                 time.sleep(0.3)
 
         # write target/speed/force, then raise the move trigger
-        self._kv(lambda: kvcomplus.write_word(plc, DM, HAND_TGT, h.closed_position))
+        self._kv(lambda: kvcomplus.write_word(plc, DM, HAND_TGT, int(target)))
         self._kv(lambda: kvcomplus.write_word(plc, DM, HAND_SPEED, h.speed))
         self._kv(lambda: kvcomplus.write_word(plc, DM, HAND_FORCE, h.grip_force))
         self._kv(lambda: kvcomplus.write_bit(plc, DM, HAND_WORD, BIT_HAND_MOVE, True))
@@ -206,7 +210,7 @@ class LabwareServiceImpl(LabwareServiceBase):
             self._run_task(pac.pick_approach)
 
             phase("chuck: closing hand")
-            self._chuck()
+            self._hand_move(motion.hand.closed_position)
 
             phase(f"retract: RunTask({pac.pick_retract})")
             self._run_task(pac.pick_retract)
@@ -219,3 +223,48 @@ class LabwareServiceImpl(LabwareServiceBase):
 
             instance.progress = 1.0
             return PickLabware_Responses(AtRetractPose=at_retract)
+
+    # ---- observable command: PutLabware ----
+    def PutLabware(
+        self,
+        *,
+        metadata: MetadataDict,
+        instance: ObservableCommandInstanceWithIntermediateResponses[PutLabware_IntermediateResponses],
+    ) -> PutLabware_Responses:
+        motion = self.parent_server.motion
+        pac = motion.pacscripts
+
+        def phase(name: str) -> None:
+            instance.send_intermediate_response(PutLabware_IntermediateResponses(Phase=name))
+
+        with self.parent_server.operation_lock:
+            # Precondition: the carriage must be at the origin (0 mm).
+            carriage_pos = self._kv(lambda: kvcomplus.read_dword(self._plc(), DM, CARRIAGE_CUR_POS))
+            if carriage_pos != 0:
+                raise CarriageNotAtOrigin(f"Carriage is at {carriage_pos} mm; must be 0 mm to put.")
+
+            # Precondition: the robot must be at the retract pose (base pose is NOT allowed).
+            angles = self._joint_angles()
+            if not motion.retract_pose.matches(angles):
+                raise RobotNotAtRetractPose("Robot is not at the retract pose; put refused.")
+            # (Grasp precondition — hand holding a labware — intentionally not checked yet.)
+
+            instance.begin_execution()
+            phase("start")
+
+            phase(f"approach: RunTask({pac.put_approach})")
+            self._run_task(pac.put_approach)
+
+            phase("unchuck: opening hand")
+            self._hand_move(motion.hand.open_position)
+
+            phase(f"retract: RunTask({pac.put_retract})")
+            self._run_task(pac.put_retract)
+
+            phase("verify retract pose")
+            at_retract = motion.retract_pose.matches(self._joint_angles())
+            if not at_retract:
+                raise PoseNotRestored("Robot did not return to the retract pose after put-retract.")
+
+            instance.progress = 1.0
+            return PutLabware_Responses(AtRetractPose=at_retract)

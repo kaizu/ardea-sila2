@@ -20,6 +20,19 @@ service LabwareService {
   rpc PickLabware_Intermediate (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.jp.riken.ardea.labwareservice.v1.PickLabware_IntermediateResponses) {}
   /* Retrieve result of PickLabware */
   rpc PickLabware_Result(sila2.org.silastandard.CommandExecutionUUID) returns (sila2.jp.riken.ardea.labwareservice.v1.PickLabware_Responses) {}
+  /* 
+      Place a labware: verify the robot is at the retract pose (not the base pose)
+      and the carriage is at the origin, run the approach task, open the hand, run
+      the retract task (which returns the robot to the retract pose), and confirm
+      the retract pose. Intermediate responses report the current phase.
+     */
+  rpc PutLabware (sila2.jp.riken.ardea.labwareservice.v1.PutLabware_Parameters) returns (sila2.org.silastandard.CommandConfirmation) {}
+  /* Monitor the state of PutLabware */
+  rpc PutLabware_Info (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.org.silastandard.ExecutionInfo) {}
+  /* Retrieve intermediate responses of PutLabware */
+  rpc PutLabware_Intermediate (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.jp.riken.ardea.labwareservice.v1.PutLabware_IntermediateResponses) {}
+  /* Retrieve result of PutLabware */
+  rpc PutLabware_Result(sila2.org.silastandard.CommandExecutionUUID) returns (sila2.jp.riken.ardea.labwareservice.v1.PutLabware_Responses) {}
 }
 
 /* Parameters for PickLabware */
@@ -34,4 +47,18 @@ message PickLabware_Responses {
 /* Intermediate responses of PickLabware */
 message PickLabware_IntermediateResponses {
   sila2.org.silastandard.String Phase = 1;  /* The current phase of the pick sequence. */
+}
+
+/* Parameters for PutLabware */
+message PutLabware_Parameters {
+}
+
+/* Responses of PutLabware */
+message PutLabware_Responses {
+  sila2.org.silastandard.Boolean AtRetractPose = 1;  /* True if the robot ended at the retract pose after the put. */
+}
+
+/* Intermediate responses of PutLabware */
+message PutLabware_IntermediateResponses {
+  sila2.org.silastandard.String Phase = 1;  /* The current phase of the put sequence. */
 }

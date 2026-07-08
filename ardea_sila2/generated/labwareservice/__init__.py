@@ -10,12 +10,18 @@ from .labwareservice_errors import (
     PlcConnectionError,
     PoseNotRestored,
     RobotAccessError,
+    RobotNotAtRetractPose,
     RobotNotInMovablePose,
     TaskAccessError,
     TaskExecutionTimeout,
 )
 from .labwareservice_feature import LabwareServiceFeature
-from .labwareservice_types import PickLabware_IntermediateResponses, PickLabware_Responses
+from .labwareservice_types import (
+    PickLabware_IntermediateResponses,
+    PickLabware_Responses,
+    PutLabware_IntermediateResponses,
+    PutLabware_Responses,
+)
 
 __all__ = [
     "LabwareServiceBase",
@@ -23,6 +29,9 @@ __all__ = [
     "LabwareServiceClient",
     "PickLabware_Responses",
     "PickLabware_IntermediateResponses",
+    "PutLabware_Responses",
+    "PutLabware_IntermediateResponses",
+    "RobotNotAtRetractPose",
     "RobotNotInMovablePose",
     "CarriageNotAtOrigin",
     "HandNotOpen",

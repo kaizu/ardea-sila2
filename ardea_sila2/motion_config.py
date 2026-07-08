@@ -85,8 +85,8 @@ class PacScriptConfig:
 
     pick_approach: str = "PickUp0"   # approach / grab position
     pick_retract: str = "PickUp1"    # retract -> ends at the retract pose
-    put_approach: str = ""           # (Put not implemented yet)
-    put_retract: str = ""
+    put_approach: str = "PickUp0"    # approach (Put currently reuses the same tasks)
+    put_retract: str = "PickUp1"     # retract -> ends at the retract pose
 
 
 @dataclass
@@ -169,9 +169,10 @@ def _build_pacscripts(data: Any) -> PacScriptConfig:
     if unknown:
         raise MotionConfigError(f"Unknown key(s) in [pacscripts]: {', '.join(sorted(unknown))}")
     p = PacScriptConfig(**{**dataclasses.asdict(PacScriptConfig()), **data})
-    # Pick task names are required (Put is optional until implemented).
-    if not p.pick_approach or not p.pick_retract:
-        raise MotionConfigError("[pacscripts] pick_approach and pick_retract must be non-empty.")
+    if not all((p.pick_approach, p.pick_retract, p.put_approach, p.put_retract)):
+        raise MotionConfigError(
+            "[pacscripts] pick_approach/pick_retract/put_approach/put_retract must be non-empty."
+        )
     return p
 
 

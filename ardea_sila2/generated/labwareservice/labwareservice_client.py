@@ -12,7 +12,12 @@ if TYPE_CHECKING:
 
     from typing import Iterable, Optional
 
-    from labwareservice_types import PickLabware_IntermediateResponses, PickLabware_Responses
+    from labwareservice_types import (
+        PickLabware_IntermediateResponses,
+        PickLabware_Responses,
+        PutLabware_IntermediateResponses,
+        PutLabware_Responses,
+    )
     from sila2.client import ClientMetadataInstance, ClientObservableCommandInstanceWithIntermediateResponses
 
 
@@ -40,6 +45,21 @@ class LabwareServiceClient:
         the retract pose), and confirm the retract pose. Intermediate responses report
         the current phase. The robot-operating signal is set during robot motion and
         always cleared when the command finishes.
+
+        """
+        ...
+
+    def PutLabware(
+        self, *, metadata: Optional[Iterable[ClientMetadataInstance]] = None
+    ) -> ClientObservableCommandInstanceWithIntermediateResponses[
+        PutLabware_IntermediateResponses, PutLabware_Responses
+    ]:
+        """
+
+        Place a labware: verify the robot is at the retract pose (not the base pose)
+        and the carriage is at the origin, run the approach task, open the hand, run
+        the retract task (which returns the robot to the retract pose), and confirm
+        the retract pose. Intermediate responses report the current phase.
 
         """
         ...

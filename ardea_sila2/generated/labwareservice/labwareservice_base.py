@@ -7,7 +7,12 @@ from typing import TYPE_CHECKING, Optional
 
 from sila2.server import FeatureImplementationBase, MetadataDict, ObservableCommandInstanceWithIntermediateResponses
 
-from .labwareservice_types import PickLabware_IntermediateResponses, PickLabware_Responses
+from .labwareservice_types import (
+    PickLabware_IntermediateResponses,
+    PickLabware_Responses,
+    PutLabware_IntermediateResponses,
+    PutLabware_Responses,
+)
 
 if TYPE_CHECKING:
 
@@ -23,6 +28,8 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
 
     PickLabware_default_lifetime_of_execution: Optional[timedelta]
 
+    PutLabware_default_lifetime_of_execution: Optional[timedelta]
+
     def __init__(self, parent_server: Server):
         """
 
@@ -37,6 +44,7 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
         super().__init__(parent_server=parent_server)
 
         self.PickLabware_default_lifetime_of_execution = None
+        self.PutLabware_default_lifetime_of_execution = None
 
     @abstractmethod
     def PickLabware(
@@ -61,6 +69,32 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
           :return:
 
               - AtRetractPose: True if the robot ended at the retract pose after the pick.
+
+
+        """
+
+    @abstractmethod
+    def PutLabware(
+        self,
+        *,
+        metadata: MetadataDict,
+        instance: ObservableCommandInstanceWithIntermediateResponses[PutLabware_IntermediateResponses],
+    ) -> PutLabware_Responses:
+        """
+
+        Place a labware: verify the robot is at the retract pose (not the base pose)
+        and the carriage is at the origin, run the approach task, open the hand, run
+        the retract task (which returns the robot to the retract pose), and confirm
+        the retract pose. Intermediate responses report the current phase.
+
+
+
+          :param metadata: The SiLA Client Metadata attached to the call
+          :param instance: The command instance, enabling sending status updates to subscribed clients
+
+          :return:
+
+              - AtRetractPose: True if the robot ended at the retract pose after the put.
 
 
         """

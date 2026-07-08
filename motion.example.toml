@@ -33,5 +33,5 @@ move_timeout_s  = 30
 [pacscripts]                # DENSO task names run via TaskService.RunTask
 pick_approach = "PickUp0"   # approach / grab position
 pick_retract  = "PickUp1"   # retract -> ends at the retract pose
-put_approach  = ""          # (Put not implemented yet)
-put_retract   = ""
+put_approach  = "PickUp0"   # Put currently reuses the same approach task
+put_retract   = "PickUp1"   # retract -> ends at the retract pose
