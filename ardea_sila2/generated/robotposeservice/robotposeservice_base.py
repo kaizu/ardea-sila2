@@ -37,7 +37,7 @@ class RobotPoseServiceBase(FeatureImplementationBase, ABC):
     def IsAtBasePose(self, *, metadata: MetadataDict) -> IsAtBasePose_Responses:
         """
 
-        Return whether the robot is at the base pose (原位置), i.e. CurJnt matches the
+        Return whether the robot is at the base pose (home/origin position), i.e. CurJnt matches the
         configured base_pose joint angles within tolerance on the first six axes.
 
 
@@ -55,7 +55,7 @@ class RobotPoseServiceBase(FeatureImplementationBase, ABC):
     def IsAtRetractPose(self, *, metadata: MetadataDict) -> IsAtRetractPose_Responses:
         """
 
-        Return whether the robot is at the retract pose (退避位置), i.e. CurJnt matches
+        Return whether the robot is at the retract pose (retract position), i.e. CurJnt matches
         the configured retract_pose joint angles within tolerance on the first six axes.
 
 

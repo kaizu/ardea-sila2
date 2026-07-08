@@ -7,8 +7,8 @@ calibration, so a wrong value risks a physical collision. They live in their own
 
 Step 1 covers the named robot poses used by ``RobotPoseService``:
 
-- ``[base_pose]``    — the base pose (= 原位置), reference for ``IsAtBasePose``
-- ``[retract_pose]`` — the retract pose (= 退避位置), reference for ``IsAtRetractPose``
+- ``[base_pose]``    — the base pose (home/origin), reference for ``IsAtBasePose``
+- ``[retract_pose]`` — the retract pose, reference for ``IsAtRetractPose``
 
 Carriage movement is permitted when the robot is at either pose. Later steps add
 ``[carriage]`` / ``[stations]`` / ``[pacscripts]`` / ``[hand]`` sections here.
@@ -58,8 +58,8 @@ class PoseConfig:
 
 @dataclass
 class MotionConfig:
-    base_pose: PoseConfig     # = 原位置
-    retract_pose: PoseConfig  # = 退避位置
+    base_pose: PoseConfig     # home/origin pose
+    retract_pose: PoseConfig  # retract pose
 
 
 def _build_pose(data: Any, section: str) -> PoseConfig:

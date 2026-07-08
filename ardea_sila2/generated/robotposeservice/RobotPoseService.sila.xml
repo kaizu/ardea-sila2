@@ -11,7 +11,7 @@
   <Command>
     <Identifier>IsAtBasePose</Identifier>
     <DisplayName>Is At Base Pose</DisplayName>
-    <Description>Return whether the robot is at the base pose (&#21407;&#20301;&#32622;), i.e. CurJnt matches the
+    <Description>Return whether the robot is at the base pose (home/origin position), i.e. CurJnt matches the
       configured base_pose joint angles within tolerance on the first six axes.</Description>
     <Observable>No</Observable>
     <Response>
@@ -31,7 +31,7 @@
   <Command>
     <Identifier>IsAtRetractPose</Identifier>
     <DisplayName>Is At Retract Pose</DisplayName>
-    <Description>Return whether the robot is at the retract pose (&#36864;&#36991;&#20301;&#32622;), i.e. CurJnt matches
+    <Description>Return whether the robot is at the retract pose (retract position), i.e. CurJnt matches
       the configured retract_pose joint angles within tolerance on the first six axes.</Description>
     <Observable>No</Observable>
     <Response>

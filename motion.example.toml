@@ -7,10 +7,10 @@
 # The values below were measured on our robot (192.168.0.11) on 2026-07-08;
 # RE-MEASURE them for your own machine.
 
-[base_pose]      # = 原位置 (home; reached by task PickUp2 / initial pose)
+[base_pose]      # home/origin pose (reached by task PickUp2; also the initial pose)
 joint_angles_deg = [89.994, 25.005, -115.007, 180.027, 89.998, -90.009]
 tolerance_deg    = 0.05   # loosened from 0.01: retract-pose J3 varied ~0.02° depending on how it was reached
 
-[retract_pose]   # = 退避位置 (retract). Carriage move allowed at base_pose OR retract_pose.
+[retract_pose]   # retract pose. Carriage move allowed at base_pose OR retract_pose.
 joint_angles_deg = [90.007, 25.003, -114.999, 120.002, 89.998, -89.999]
 tolerance_deg    = 0.05

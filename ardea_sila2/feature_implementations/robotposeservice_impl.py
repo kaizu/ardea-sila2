@@ -1,8 +1,8 @@
 """RobotPoseService implementation (Ardea-specific).
 
 Reads the robot's current joint angles over b-CAP (reusing ``bcap_sila2.bcap``)
-and reports whether the arm is at a configured named pose — the base pose (原位置)
-or the retract pose (退避位置) — by comparing the first six axes within tolerance.
+and reports whether the arm is at a configured named pose — the base pose (home/origin)
+or the retract pose — by comparing the first six axes within tolerance.
 Read-only: it never moves the robot. Reference poses and tolerance come from the
 motion configuration (``self.parent_server.motion``); see ``motion_config``.
 """
