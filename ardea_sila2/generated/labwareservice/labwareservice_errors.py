@@ -90,3 +90,10 @@ class HandError(DefinedExecutionError):
         if message is None:
             message = "The hand failed to activate or to complete a chuck/unchuck within the timeout."
         super().__init__(LabwareServiceFeature.defined_execution_errors["HandError"], message=message)
+
+
+class GraspFailed(DefinedExecutionError):
+    def __init__(self, message: Optional[str] = None):
+        if message is None:
+            message = "Grasp verification failed: PickLabware did not grasp a labware (hand closed fully = empty), or PutLabware was not holding a labware to place."
+        super().__init__(LabwareServiceFeature.defined_execution_errors["GraspFailed"], message=message)

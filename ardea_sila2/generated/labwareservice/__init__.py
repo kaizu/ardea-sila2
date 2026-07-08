@@ -4,6 +4,7 @@ from .labwareservice_client import LabwareServiceClient
 from .labwareservice_errors import (
     CarriageNotAtOrigin,
     ControllerConnectionError,
+    GraspFailed,
     HandError,
     HandNotOpen,
     PlcAccessError,
@@ -43,4 +44,5 @@ __all__ = [
     "PlcConnectionError",
     "PlcAccessError",
     "HandError",
+    "GraspFailed",
 ]

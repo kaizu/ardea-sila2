@@ -54,6 +54,7 @@
       <Identifier>PlcConnectionError</Identifier>
       <Identifier>PlcAccessError</Identifier>
       <Identifier>HandError</Identifier>
+      <Identifier>GraspFailed</Identifier>
     </DefinedExecutionErrors>
   </Command>
 
@@ -94,6 +95,7 @@
       <Identifier>PlcConnectionError</Identifier>
       <Identifier>PlcAccessError</Identifier>
       <Identifier>HandError</Identifier>
+      <Identifier>GraspFailed</Identifier>
     </DefinedExecutionErrors>
   </Command>
 
@@ -157,5 +159,10 @@
     <Identifier>HandError</Identifier>
     <DisplayName>Hand Error</DisplayName>
     <Description>The hand failed to activate or to complete a chuck/unchuck within the timeout.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>GraspFailed</Identifier>
+    <DisplayName>Grasp Failed</DisplayName>
+    <Description>Grasp verification failed: PickLabware did not grasp a labware (hand closed fully = empty), or PutLabware was not holding a labware to place.</Description>
   </DefinedExecutionError>
 </Feature>

@@ -13,9 +13,11 @@ Reuses bcap task/pose helpers and the kvcomplus atomic primitives; holds the
 server OperationCoordinator for the whole sequence so no carriage move runs
 concurrently.
 
-NOTE: grasp-success verification (chuck ending with D6002.6==0 = holding an
-object) is intentionally NOT enforced here, because the test runs without labware
-(the hand closes fully = empty grip). The formal version will use D6002.6.
+Grasp verification: PickLabware confirms a labware was grasped after closing
+(D6002.6==0 at chuck completion = stopped short on an object); PutLabware confirms
+the hand is holding a labware before opening (hand position between fully-closed
+and fully-open). Both raise GraspFailed otherwise. D6002.6/.7 fall back to 0 at
+rest, so the grip bit is sampled at the move's completion instant (see _hand_move).
 """
 
 from __future__ import annotations
@@ -38,6 +40,7 @@ from kvcomplus_sila2 import kvcomplus
 from ..generated.labwareservice import (
     CarriageNotAtOrigin,
     ControllerConnectionError,
+    GraspFailed,
     HandError,
     HandNotOpen,
     LabwareServiceBase,
@@ -75,6 +78,7 @@ HAND_CUR_POS = 6060           # D6060 hand current position
 CARRIAGE_CUR_POS = 6010       # D6010 carriage current position [mm] (2 words)
 _HAND_START_TIMEOUT_S = 5.0
 _HAND_OPEN_TOL = 3            # tolerance [units] for "hand fully open" check
+_GRASP_MARGIN = 5            # margin [units] from full open/close for "holding a labware"
 _ONE_CYCLE = 1                 # RunTask mode: run once and stop
 
 
@@ -124,11 +128,12 @@ class LabwareServiceImpl(LabwareServiceBase):
     def _hand_status(self) -> int:
         return self._kv(lambda: kvcomplus.read_word(self._plc(), DM, HAND_STATUS))
 
-    def _hand_move(self, target: int) -> None:
+    def _hand_move(self, target: int) -> int:
         """Move the hand to ``target`` (activate if needed, write params, wait done).
 
-        Used for both chuck (target=closed) and unchuck (target=open). Grasp success
-        (D6002.6) is deliberately not checked here (test without labware).
+        Used for both chuck (target=closed) and unchuck (target=open). Returns the
+        in-position/grip bit D6002.6 sampled at the completion instant (bit7->1):
+        0 = stopped short (gripping an object), 1 = reached the commanded position.
         """
         plc = self._plc()
         h = self.parent_server.motion.hand
@@ -158,16 +163,20 @@ class LabwareServiceImpl(LabwareServiceBase):
                 if (self._hand_status() >> 7) & 1 == 0:
                     break
                 time.sleep(0.3)
-            # phase B: wait for completion (done-bit7 -> 1)
+            # phase B: wait for completion (done-bit7 -> 1); sample grip bit there
+            grip_bit = 1
             t1 = time.time()
             while True:
-                if (self._hand_status() >> 7) & 1 == 1:
+                st = self._hand_status()
+                if (st >> 7) & 1 == 1:
+                    grip_bit = (st >> 6) & 1
                     break
                 if time.time() - t1 > h.move_timeout_s:
-                    raise HandError("hand chuck did not complete (D6002.7)")
+                    raise HandError("hand move did not complete (D6002.7)")
                 time.sleep(0.3)
         finally:
             self._kv(lambda: kvcomplus.write_bit(plc, DM, HAND_WORD, BIT_HAND_MOVE, False))
+        return grip_bit
 
     # ---- observable command: PickLabware ----
     def PickLabware(
@@ -210,7 +219,11 @@ class LabwareServiceImpl(LabwareServiceBase):
             self._run_task(pac.pick_approach)
 
             phase("chuck: closing hand")
-            self._hand_move(motion.hand.closed_position)
+            grip_bit = self._hand_move(motion.hand.closed_position)
+            # Grasp check: at chuck completion, D6002.6==0 means the hand stopped
+            # short on an object (grasped); ==1 means it reached full close (empty).
+            if grip_bit != 0:
+                raise GraspFailed("No labware grasped (hand reached full close = empty grip).")
 
             phase(f"retract: RunTask({pac.pick_retract})")
             self._run_task(pac.pick_retract)
@@ -247,7 +260,15 @@ class LabwareServiceImpl(LabwareServiceBase):
             angles = self._joint_angles()
             if not motion.retract_pose.matches(angles):
                 raise RobotNotAtRetractPose("Robot is not at the retract pose; put refused.")
-            # (Grasp precondition — hand holding a labware — intentionally not checked yet.)
+
+            # Precondition: the hand must be holding a labware (position between fully
+            # closed and fully open). At rest the grip bit is lost, so use position.
+            h = motion.hand
+            hand_pos = self._kv(lambda: kvcomplus.read_word(self._plc(), DM, HAND_CUR_POS))
+            if not (h.closed_position + _GRASP_MARGIN <= hand_pos <= h.open_position - _GRASP_MARGIN):
+                raise GraspFailed(
+                    f"Hand is not holding a labware (D6060={hand_pos}); nothing to put."
+                )
 
             instance.begin_execution()
             phase("start")
