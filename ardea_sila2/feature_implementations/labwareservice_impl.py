@@ -36,8 +36,10 @@ from sila2.server import MetadataDict, ObservableCommandInstanceWithIntermediate
 from kvcomplus_sila2 import kvcomplus
 
 from ..generated.labwareservice import (
+    CarriageNotAtOrigin,
     ControllerConnectionError,
     HandError,
+    HandNotOpen,
     LabwareServiceBase,
     PickLabware_IntermediateResponses,
     PickLabware_Responses,
@@ -66,7 +68,10 @@ HAND_STATUS = 6002            # D6002 (.0 active, .4/.5 activation done, .7 done
 HAND_TGT = 5050
 HAND_SPEED = 5060
 HAND_FORCE = 5070
+HAND_CUR_POS = 6060           # D6060 hand current position
+CARRIAGE_CUR_POS = 6010       # D6010 carriage current position [mm] (2 words)
 _HAND_START_TIMEOUT_S = 5.0
+_HAND_OPEN_TOL = 3            # tolerance [units] for "hand fully open" check
 _ONE_CYCLE = 1                 # RunTask mode: run once and stop
 
 
@@ -175,6 +180,17 @@ class LabwareServiceImpl(LabwareServiceBase):
 
         # Hold the OperationCoordinator for the whole pick.
         with self.parent_server.operation_lock:
+            # Precondition: the carriage must be at the origin (0 mm).
+            carriage_pos = self._kv(lambda: kvcomplus.read_dword(self._plc(), DM, CARRIAGE_CUR_POS))
+            if carriage_pos != 0:
+                raise CarriageNotAtOrigin(f"Carriage is at {carriage_pos} mm; must be 0 mm to pick.")
+
+            # Precondition: the hand must be fully open.
+            hand_pos = self._kv(lambda: kvcomplus.read_word(self._plc(), DM, HAND_CUR_POS))
+            open_pos = motion.hand.open_position
+            if abs(hand_pos - open_pos) > _HAND_OPEN_TOL:
+                raise HandNotOpen(f"Hand is at {hand_pos} (open={open_pos}); must be fully open to pick.")
+
             # Pose gate: robot must start at the base or retract pose.
             angles = self._joint_angles()
             if not (motion.base_pose.matches(angles) or motion.retract_pose.matches(angles)):

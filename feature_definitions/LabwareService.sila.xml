@@ -44,6 +44,8 @@
     </IntermediateResponse>
     <DefinedExecutionErrors>
       <Identifier>RobotNotInMovablePose</Identifier>
+      <Identifier>CarriageNotAtOrigin</Identifier>
+      <Identifier>HandNotOpen</Identifier>
       <Identifier>PoseNotRestored</Identifier>
       <Identifier>ControllerConnectionError</Identifier>
       <Identifier>RobotAccessError</Identifier>
@@ -60,6 +62,16 @@
     <Identifier>RobotNotInMovablePose</Identifier>
     <DisplayName>Robot Not In Movable Pose</DisplayName>
     <Description>The robot is at neither the base pose nor the retract pose, so the pick cannot start.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>CarriageNotAtOrigin</Identifier>
+    <DisplayName>Carriage Not At Origin</DisplayName>
+    <Description>The travel carriage is not at 0 mm; PickLabware requires the carriage at the origin.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>HandNotOpen</Identifier>
+    <DisplayName>Hand Not Open</DisplayName>
+    <Description>The hand is not fully open; PickLabware requires the hand open before starting.</Description>
   </DefinedExecutionError>
   <DefinedExecutionError>
     <Identifier>PoseNotRestored</Identifier>

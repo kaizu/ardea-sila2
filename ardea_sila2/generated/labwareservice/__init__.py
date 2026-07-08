@@ -2,8 +2,10 @@
 from .labwareservice_base import LabwareServiceBase
 from .labwareservice_client import LabwareServiceClient
 from .labwareservice_errors import (
+    CarriageNotAtOrigin,
     ControllerConnectionError,
     HandError,
+    HandNotOpen,
     PlcAccessError,
     PlcConnectionError,
     PoseNotRestored,
@@ -22,6 +24,8 @@ __all__ = [
     "PickLabware_Responses",
     "PickLabware_IntermediateResponses",
     "RobotNotInMovablePose",
+    "CarriageNotAtOrigin",
+    "HandNotOpen",
     "PoseNotRestored",
     "ControllerConnectionError",
     "RobotAccessError",

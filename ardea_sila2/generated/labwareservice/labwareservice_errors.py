@@ -15,6 +15,20 @@ class RobotNotInMovablePose(DefinedExecutionError):
         super().__init__(LabwareServiceFeature.defined_execution_errors["RobotNotInMovablePose"], message=message)
 
 
+class CarriageNotAtOrigin(DefinedExecutionError):
+    def __init__(self, message: Optional[str] = None):
+        if message is None:
+            message = "The travel carriage is not at 0 mm; PickLabware requires the carriage at the origin."
+        super().__init__(LabwareServiceFeature.defined_execution_errors["CarriageNotAtOrigin"], message=message)
+
+
+class HandNotOpen(DefinedExecutionError):
+    def __init__(self, message: Optional[str] = None):
+        if message is None:
+            message = "The hand is not fully open; PickLabware requires the hand open before starting."
+        super().__init__(LabwareServiceFeature.defined_execution_errors["HandNotOpen"], message=message)
+
+
 class PoseNotRestored(DefinedExecutionError):
     def __init__(self, message: Optional[str] = None):
         if message is None:
