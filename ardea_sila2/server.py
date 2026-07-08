@@ -33,7 +33,12 @@ from kvcomplus_sila2.feature_implementations.deviceservice_impl import DeviceSer
 from kvcomplus_sila2.generated.connectionservice import ConnectionServiceFeature
 from kvcomplus_sila2.generated.deviceservice import DeviceServiceFeature
 
+# Ardea-specific orchestration features
+from .feature_implementations.robotposeservice_impl import RobotPoseServiceImpl
+from .generated.robotposeservice import RobotPoseServiceFeature
+
 from .config import Config
+from .motion_config import MotionConfig
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +47,7 @@ class Server(SilaServer):
     def __init__(
         self,
         config: Config,
+        motion: MotionConfig,
         server_uuid: Optional[UUID] = None,
         name: Optional[str] = None,
         description: Optional[str] = None,
@@ -49,6 +55,9 @@ class Server(SilaServer):
         # Settings read by the reused feature implementations via
         # ``self.parent_server.config`` (.controller/.task for b-CAP, .plc for KV COM+).
         self.config = config
+        # Motion / calibration values (named poses, etc.) read by Ardea-specific
+        # feature implementations via ``self.parent_server.motion``.
+        self.motion = motion
 
         if name is None:
             name = "Ardea SiLA2 Server"
@@ -87,6 +96,10 @@ class Server(SilaServer):
 
         self.connectionservice = ConnectionServiceImpl(self)
         self.set_feature_implementation(ConnectionServiceFeature, self.connectionservice)
+
+        # --- Ardea-specific orchestration features ---
+        self.robotposeservice = RobotPoseServiceImpl(self)
+        self.set_feature_implementation(RobotPoseServiceFeature, self.robotposeservice)
 
         # Pre-warm the persistent KV COM+ connection so its cost is paid at
         # startup rather than on the first command. Non-fatal if the PLC is

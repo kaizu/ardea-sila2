@@ -10,6 +10,7 @@ import typer
 from typer import BadParameter, Option
 
 from .config import ConfigError, load_config
+from .motion_config import MotionConfigError, load_motion_config
 from .server import Server
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,10 @@ logger = logging.getLogger(__name__)
 
 def main(
     config_file: str = Option("config.toml", "--config", help="Path to the TOML configuration file"),
+    motion_config_file: str = Option(
+        "motion.toml", "--motion-config",
+        help="Path to the motion/calibration TOML file (named poses etc.)",
+    ),
     ip_address: Optional[str] = Option(
         None, "-a", "--ip-address", help="The IP address [default: [server].host from config]", show_default=False
     ),
@@ -76,12 +81,18 @@ def main(
     except ConfigError as e:
         raise BadParameter(str(e), param_hint="--config")
 
+    # load motion/calibration configuration (named poses, ...)
+    try:
+        motion = load_motion_config(motion_config_file)
+    except MotionConfigError as e:
+        raise BadParameter(str(e), param_hint="--motion-config")
+
     # resolve bind address/port: CLI overrides the [server] section of the config
     bind_ip = ip_address if ip_address is not None else config.server.host
     bind_port = port if port is not None else config.server.port
 
     # run server
-    server = Server(config, server_uuid=parsed_server_uuid, name=server_name, description=server_description)
+    server = Server(config, motion, server_uuid=parsed_server_uuid, name=server_name, description=server_description)
 
     def start_server():
         if insecure:

@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Feature SiLA2Version="1.0" FeatureVersion="1.0" MaturityLevel="Draft" Originator="jp.riken" Category="ardea"
+         xmlns="http://www.sila-standard.org"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
+  <Identifier>RobotPoseService</Identifier>
+  <DisplayName>Robot Pose Service</DisplayName>
+  <Description>
+    Ardea-specific checks for whether the DENSO robot is at a known named pose.
+    The current joint angles (CurJnt) are read over b-CAP and compared element-wise
+    against the reference pose from the motion configuration on the first six axes
+    (J1..J6) within a small tolerance. These commands only read; they do not move
+    the robot. Carriage movement is permitted when the robot is at either the base
+    pose or the retract pose.
+  </Description>
+
+  <!-- Commands -->
+  <Command>
+    <Identifier>IsAtBasePose</Identifier>
+    <DisplayName>Is At Base Pose</DisplayName>
+    <Description>
+      Return whether the robot is at the base pose (原位置), i.e. CurJnt matches the
+      configured base_pose joint angles within tolerance on the first six axes.
+    </Description>
+    <Observable>No</Observable>
+    <Response>
+      <Identifier>IsAtBasePose</Identifier>
+      <DisplayName>Is At Base Pose</DisplayName>
+      <Description>True if the robot is at the base pose.</Description>
+      <DataType>
+        <Basic>Boolean</Basic>
+      </DataType>
+    </Response>
+    <DefinedExecutionErrors>
+      <Identifier>ControllerConnectionError</Identifier>
+      <Identifier>RobotAccessError</Identifier>
+      <Identifier>PoseDimensionMismatch</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+
+  <Command>
+    <Identifier>IsAtRetractPose</Identifier>
+    <DisplayName>Is At Retract Pose</DisplayName>
+    <Description>
+      Return whether the robot is at the retract pose (退避位置), i.e. CurJnt matches
+      the configured retract_pose joint angles within tolerance on the first six axes.
+    </Description>
+    <Observable>No</Observable>
+    <Response>
+      <Identifier>IsAtRetractPose</Identifier>
+      <DisplayName>Is At Retract Pose</DisplayName>
+      <Description>True if the robot is at the retract pose.</Description>
+      <DataType>
+        <Basic>Boolean</Basic>
+      </DataType>
+    </Response>
+    <DefinedExecutionErrors>
+      <Identifier>ControllerConnectionError</Identifier>
+      <Identifier>RobotAccessError</Identifier>
+      <Identifier>PoseDimensionMismatch</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+
+  <!-- Command execution errors -->
+  <DefinedExecutionError>
+    <Identifier>ControllerConnectionError</Identifier>
+    <DisplayName>Controller Connection Error</DisplayName>
+    <Description>Failed to connect to or communicate with the robot controller over b-CAP.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>RobotAccessError</Identifier>
+    <DisplayName>Robot Access Error</DisplayName>
+    <Description>Failed to acquire the robot or read the current joint angles.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>PoseDimensionMismatch</Identifier>
+    <DisplayName>Pose Dimension Mismatch</DisplayName>
+    <Description>The current joint angles have fewer axes than required to compare against the reference pose.</Description>
+  </DefinedExecutionError>
+</Feature>

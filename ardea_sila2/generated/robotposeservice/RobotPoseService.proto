@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+import "SiLAFramework.proto";
+
+package sila2.jp.riken.ardea.robotposeservice.v1;
+
+/* Ardea-specific checks for whether the DENSO robot is at a known named pose. The current joint angles (CurJnt) are read over b-CAP and compared element-wise against the reference pose from the motion configuration on the first six axes (J1..J6) within a small tolerance. These commands only read; they do not move the robot. Carriage movement is permitted when the robot is at either the base pose or the retract pose. */
+service RobotPoseService {
+  /* Return whether the robot is at the base pose (原位置), i.e. CurJnt matches the configured base_pose joint angles within tolerance on the first six axes. */
+  rpc IsAtBasePose (sila2.jp.riken.ardea.robotposeservice.v1.IsAtBasePose_Parameters) returns (sila2.jp.riken.ardea.robotposeservice.v1.IsAtBasePose_Responses) {}
+  /* Return whether the robot is at the retract pose (退避位置), i.e. CurJnt matches the configured retract_pose joint angles within tolerance on the first six axes. */
+  rpc IsAtRetractPose (sila2.jp.riken.ardea.robotposeservice.v1.IsAtRetractPose_Parameters) returns (sila2.jp.riken.ardea.robotposeservice.v1.IsAtRetractPose_Responses) {}
+}
+
+/* Parameters for IsAtBasePose */
+message IsAtBasePose_Parameters {
+}
+
+/* Responses of IsAtBasePose */
+message IsAtBasePose_Responses {
+  sila2.org.silastandard.Boolean IsAtBasePose = 1;  /* True if the robot is at the base pose. */
+}
+
+/* Parameters for IsAtRetractPose */
+message IsAtRetractPose_Parameters {
+}
+
+/* Responses of IsAtRetractPose */
+message IsAtRetractPose_Responses {
+  sila2.org.silastandard.Boolean IsAtRetractPose = 1;  /* True if the robot is at the retract pose. */
+}

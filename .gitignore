@@ -1,5 +1,6 @@
-# Project-specific: local config is not tracked
+# Project-specific: local config / calibration is not tracked
 config.toml
+motion.toml
 docs/
 
 # Python
