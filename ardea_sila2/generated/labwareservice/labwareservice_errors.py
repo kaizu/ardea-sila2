@@ -15,11 +15,11 @@ class RobotNotAtRetractPose(DefinedExecutionError):
         super().__init__(LabwareServiceFeature.defined_execution_errors["RobotNotAtRetractPose"], message=message)
 
 
-class RobotNotInMovablePose(DefinedExecutionError):
+class RobotNotAtBasePose(DefinedExecutionError):
     def __init__(self, message: Optional[str] = None):
         if message is None:
-            message = "The robot is at neither the base pose nor the retract pose, so the pick cannot start."
-        super().__init__(LabwareServiceFeature.defined_execution_errors["RobotNotInMovablePose"], message=message)
+            message = "The robot is not at the base pose, which PickLabware requires (the retract pose is not allowed)."
+        super().__init__(LabwareServiceFeature.defined_execution_errors["RobotNotAtBasePose"], message=message)
 
 
 class CarriageNotAtOrigin(DefinedExecutionError):

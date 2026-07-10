@@ -52,8 +52,8 @@ from ..generated.labwareservice import (
     PutLabware_IntermediateResponses,
     PutLabware_Responses,
     RobotAccessError,
+    RobotNotAtBasePose,
     RobotNotAtRetractPose,
-    RobotNotInMovablePose,
     TaskAccessError,
     TaskExecutionTimeout,
 )
@@ -204,12 +204,10 @@ class LabwareServiceImpl(LabwareServiceBase):
             if abs(hand_pos - open_pos) > _HAND_OPEN_TOL:
                 raise HandNotOpen(f"Hand is at {hand_pos} (open={open_pos}); must be fully open to pick.")
 
-            # Pose gate: robot must start at the base or retract pose.
+            # Pose gate: PickLabware requires the base pose only (retract not allowed).
             angles = self._joint_angles()
-            if not (motion.base_pose.matches(angles) or motion.retract_pose.matches(angles)):
-                raise RobotNotInMovablePose(
-                    "Robot is at neither the base nor the retract pose; pick refused."
-                )
+            if not motion.base_pose.matches(angles):
+                raise RobotNotAtBasePose("Robot is not at the base pose; pick refused.")
 
             instance.begin_execution()
             phase("start")
@@ -283,9 +281,25 @@ class LabwareServiceImpl(LabwareServiceBase):
             self._run_task(pac.put_retract)
 
             phase("verify retract pose")
-            at_retract = motion.retract_pose.matches(self._joint_angles())
-            if not at_retract:
+            if not motion.retract_pose.matches(self._joint_angles()):
                 raise PoseNotRestored("Robot did not return to the retract pose after put-retract.")
 
+            # Return to the base pose. PickUp2 (return_home) only runs with the hand
+            # open, which it is after the unchuck above; verify defensively.
+            hand_pos = self._kv(lambda: kvcomplus.read_word(self._plc(), DM, HAND_CUR_POS))
+            if abs(hand_pos - motion.hand.open_position) > _HAND_OPEN_TOL:
+                raise HandNotOpen(
+                    f"Hand is at {hand_pos} (open={motion.hand.open_position}); "
+                    "return-home requires the hand open."
+                )
+
+            phase(f"return home: RunTask({pac.return_home})")
+            self._run_task(pac.return_home)
+
+            phase("verify base pose")
+            at_base = motion.base_pose.matches(self._joint_angles())
+            if not at_base:
+                raise PoseNotRestored("Robot did not return to the base pose after return-home.")
+
             instance.progress = 1.0
-            return PutLabware_Responses(AtRetractPose=at_retract)
+            return PutLabware_Responses(AtBasePose=at_base)

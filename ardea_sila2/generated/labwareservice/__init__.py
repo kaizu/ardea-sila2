@@ -11,8 +11,8 @@ from .labwareservice_errors import (
     PlcConnectionError,
     PoseNotRestored,
     RobotAccessError,
+    RobotNotAtBasePose,
     RobotNotAtRetractPose,
-    RobotNotInMovablePose,
     TaskAccessError,
     TaskExecutionTimeout,
 )
@@ -33,7 +33,7 @@ __all__ = [
     "PutLabware_Responses",
     "PutLabware_IntermediateResponses",
     "RobotNotAtRetractPose",
-    "RobotNotInMovablePose",
+    "RobotNotAtBasePose",
     "CarriageNotAtOrigin",
     "HandNotOpen",
     "PoseNotRestored",

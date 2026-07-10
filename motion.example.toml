@@ -35,3 +35,4 @@ pick_approach = "PickUp0"   # approach / grab position
 pick_retract  = "PickUp1"   # retract -> ends at the retract pose
 put_approach  = "PickUp0"   # Put currently reuses the same approach task
 put_retract   = "PickUp1"   # retract -> ends at the retract pose
+return_home   = "PickUp2"   # common: retract -> base pose (requires hand open)

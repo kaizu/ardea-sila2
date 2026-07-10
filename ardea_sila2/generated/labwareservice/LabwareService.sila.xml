@@ -1,21 +1,20 @@
 <Feature xmlns="http://www.sila-standard.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Category="ardea" FeatureVersion="1.0" MaturityLevel="Draft" Originator="jp.riken" SiLA2Version="1.0" xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
   <Identifier>LabwareService</Identifier>
   <DisplayName>Labware Service</DisplayName>
-  <Description>Ardea labware handling: pick (and later put) a labware by orchestrating the
-    DENSO robot (b-CAP tasks) and the KEYENCE hand (KV COM+). PickLabware runs the
-    approach task, closes the hand, runs the retract task, and confirms the robot
-    returned to the retract pose. Only allowed when the robot starts at a movable
-    pose (base or retract). The robot-operating signal locks the carriage out
-    during robot motion and is always cleared afterwards.</Description>
+  <Description>Ardea labware handling: pick and put a labware by orchestrating the DENSO robot
+    (b-CAP tasks) and the KEYENCE hand (KV COM+). Each command runs the approach
+    task, actuates the hand (close for pick, open for put), runs the retract task,
+    and confirms the robot returned to the retract pose. PickLabware requires the
+    robot to start at the base pose; PutLabware requires the retract pose. Neither
+    command moves the carriage.</Description>
   <!-- Commands -->
   <Command>
     <Identifier>PickLabware</Identifier>
     <DisplayName>Pick Labware</DisplayName>
-    <Description>Pick a labware: verify the robot is at a movable pose, run the pick-approach
+    <Description>Pick a labware: verify the robot is at the base pose, run the pick-approach
       task, close the hand, run the pick-retract task (which returns the robot to
       the retract pose), and confirm the retract pose. Intermediate responses report
-      the current phase. The robot-operating signal is set during robot motion and
-      always cleared when the command finishes.</Description>
+      the current phase.</Description>
     <Observable>Yes</Observable>
     <Response>
       <Identifier>AtRetractPose</Identifier>
@@ -34,7 +33,7 @@
       </DataType>
     </IntermediateResponse>
     <DefinedExecutionErrors>
-      <Identifier>RobotNotInMovablePose</Identifier>
+      <Identifier>RobotNotAtBasePose</Identifier>
       <Identifier>CarriageNotAtOrigin</Identifier>
       <Identifier>HandNotOpen</Identifier>
       <Identifier>PoseNotRestored</Identifier>
@@ -53,13 +52,14 @@
     <DisplayName>Put Labware</DisplayName>
     <Description>Place a labware: verify the robot is at the retract pose (not the base pose)
       and the carriage is at the origin, run the approach task, open the hand, run
-      the retract task (which returns the robot to the retract pose), and confirm
-      the retract pose. Intermediate responses report the current phase.</Description>
+      the retract task (robot to the retract pose), confirm the retract pose, then &#8212;
+      with the hand open &#8212; run the common return-home task to bring the robot back
+      to the base pose and confirm it. Intermediate responses report the current phase.</Description>
     <Observable>Yes</Observable>
     <Response>
-      <Identifier>AtRetractPose</Identifier>
-      <DisplayName>At Retract Pose</DisplayName>
-      <Description>True if the robot ended at the retract pose after the put.</Description>
+      <Identifier>AtBasePose</Identifier>
+      <DisplayName>At Base Pose</DisplayName>
+      <Description>True if the robot ended at the base pose after the put and return-home.</Description>
       <DataType>
         <Basic>Boolean</Basic>
       </DataType>
@@ -75,6 +75,7 @@
     <DefinedExecutionErrors>
       <Identifier>RobotNotAtRetractPose</Identifier>
       <Identifier>CarriageNotAtOrigin</Identifier>
+      <Identifier>HandNotOpen</Identifier>
       <Identifier>PoseNotRestored</Identifier>
       <Identifier>ControllerConnectionError</Identifier>
       <Identifier>RobotAccessError</Identifier>
@@ -93,9 +94,9 @@
     <Description>The robot is not at the retract pose, which PutLabware requires (the base pose is not allowed).</Description>
   </DefinedExecutionError>
   <DefinedExecutionError>
-    <Identifier>RobotNotInMovablePose</Identifier>
-    <DisplayName>Robot Not In Movable Pose</DisplayName>
-    <Description>The robot is at neither the base pose nor the retract pose, so the pick cannot start.</Description>
+    <Identifier>RobotNotAtBasePose</Identifier>
+    <DisplayName>Robot Not At Base Pose</DisplayName>
+    <Description>The robot is not at the base pose, which PickLabware requires (the retract pose is not allowed).</Description>
   </DefinedExecutionError>
   <DefinedExecutionError>
     <Identifier>CarriageNotAtOrigin</Identifier>

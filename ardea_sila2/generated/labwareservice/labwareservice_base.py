@@ -33,12 +33,12 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
     def __init__(self, parent_server: Server):
         """
 
-        Ardea labware handling: pick (and later put) a labware by orchestrating the
-        DENSO robot (b-CAP tasks) and the KEYENCE hand (KV COM+). PickLabware runs the
-        approach task, closes the hand, runs the retract task, and confirms the robot
-        returned to the retract pose. Only allowed when the robot starts at a movable
-        pose (base or retract). The robot-operating signal locks the carriage out
-        during robot motion and is always cleared afterwards.
+        Ardea labware handling: pick and put a labware by orchestrating the DENSO robot
+        (b-CAP tasks) and the KEYENCE hand (KV COM+). Each command runs the approach
+        task, actuates the hand (close for pick, open for put), runs the retract task,
+        and confirms the robot returned to the retract pose. PickLabware requires the
+        robot to start at the base pose; PutLabware requires the retract pose. Neither
+        command moves the carriage.
 
         """
         super().__init__(parent_server=parent_server)
@@ -55,11 +55,10 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
     ) -> PickLabware_Responses:
         """
 
-        Pick a labware: verify the robot is at a movable pose, run the pick-approach
+        Pick a labware: verify the robot is at the base pose, run the pick-approach
         task, close the hand, run the pick-retract task (which returns the robot to
         the retract pose), and confirm the retract pose. Intermediate responses report
-        the current phase. The robot-operating signal is set during robot motion and
-        always cleared when the command finishes.
+        the current phase.
 
 
 
@@ -84,8 +83,9 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
 
         Place a labware: verify the robot is at the retract pose (not the base pose)
         and the carriage is at the origin, run the approach task, open the hand, run
-        the retract task (which returns the robot to the retract pose), and confirm
-        the retract pose. Intermediate responses report the current phase.
+        the retract task (robot to the retract pose), confirm the retract pose, then —
+        with the hand open — run the common return-home task to bring the robot back
+        to the base pose and confirm it. Intermediate responses report the current phase.
 
 
 
@@ -94,7 +94,7 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
 
           :return:
 
-              - AtRetractPose: True if the robot ended at the retract pose after the put.
+              - AtBasePose: True if the robot ended at the base pose after the put and return-home.
 
 
         """
