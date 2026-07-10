@@ -14,11 +14,14 @@ server OperationCoordinator for the whole sequence so no carriage move runs
 concurrently. The D5000.1 carriage-lockout is NOT used (it breaks b-CAP RunTask;
 see note below).
 
-Grasp verification: PickLabware confirms a labware was grasped after closing
-(D6002.6==0 at chuck completion = stopped short on an object); PutLabware confirms
-the hand is holding a labware before opening (hand position between fully-closed
-and fully-open). Both raise GraspFailed otherwise. D6002.6/.7 fall back to 0 at
-rest, so the grip bit is sampled at the move's completion instant (see _hand_move).
+Grasp verification (by position, not the grip bit): an empty hand springs back to
+the open position when the move bit clears, while a held labware keeps the jaws
+closed at the object's width (which can be small, e.g. 4, or larger, e.g. 79). So
+"holding" == the current hand position is NOT near open (<= open_position -
+_GRASP_MARGIN). PickLabware checks this after the chuck (with a short settle for the
+empty case to reopen); PutLabware checks it before opening. Either raises GraspFailed.
+(D6002.6/.7 fall back to 0 at rest and don't distinguish held-small-object from
+empty, so position is used instead.)
 """
 
 from __future__ import annotations
@@ -79,7 +82,12 @@ HAND_CUR_POS = 6060           # D6060 hand current position
 CARRIAGE_CUR_POS = 6010       # D6010 carriage current position [mm] (2 words)
 _HAND_START_TIMEOUT_S = 5.0
 _HAND_OPEN_TOL = 3            # tolerance [units] for "hand fully open" check
-_GRASP_MARGIN = 5            # margin [units] from full open/close for "holding a labware"
+# "Holding a labware" = the jaws did NOT spring back to the open position after the
+# move bit cleared (an empty hand reopens to ~open_position; a held one stays closed
+# at the object's width, which can be anywhere well below open, e.g. 4 or 79). So
+# holding <=> current position <= open_position - _GRASP_MARGIN (no lower bound).
+_GRASP_MARGIN = 10           # margin [units] below open_position that still counts as "holding"
+_GRASP_SETTLE_S = 1.5        # wait after a chuck for an empty hand to reopen before checking
 _ONE_CYCLE = 1                 # RunTask mode: run once and stop
 
 
@@ -218,11 +226,14 @@ class LabwareServiceImpl(LabwareServiceBase):
             self._run_task(station.script_a)
 
             phase("chuck: closing hand")
-            grip_bit = self._hand_move(motion.hand.closed_position)
-            # Grasp check: at chuck completion, D6002.6==0 means the hand stopped
-            # short on an object (grasped); ==1 means it reached full close (empty).
-            if grip_bit != 0:
-                raise GraspFailed("No labware grasped (hand reached full close = empty grip).")
+            self._hand_move(motion.hand.closed_position)
+            # Grasp check by position: an empty hand springs back to the open position
+            # once the move bit clears, while a held labware keeps the jaws closed
+            # (at the object's width). After a short settle, "grasped" = not reopened.
+            time.sleep(_GRASP_SETTLE_S)
+            hand_pos = self._kv(lambda: kvcomplus.read_word(self._plc(), DM, HAND_CUR_POS))
+            if hand_pos > motion.hand.open_position - _GRASP_MARGIN:
+                raise GraspFailed(f"No labware grasped (hand reopened to {hand_pos}).")
 
             phase(f"retract: RunTask({station.script_b})")
             self._run_task(station.script_b)
@@ -261,13 +272,14 @@ class LabwareServiceImpl(LabwareServiceBase):
             if not motion.retract_pose.matches(angles):
                 raise RobotNotAtRetractPose("Robot is not at the retract pose; put refused.")
 
-            # Precondition: the hand must be holding a labware (position between fully
-            # closed and fully open). At rest the grip bit is lost, so use position.
+            # Precondition: the hand must be holding a labware, i.e. the jaws are not
+            # (near) fully open. An empty hand rests at ~open_position; a held one
+            # stays closed at the object's width (which may be small, e.g. 4).
             h = motion.hand
             hand_pos = self._kv(lambda: kvcomplus.read_word(self._plc(), DM, HAND_CUR_POS))
-            if not (h.closed_position + _GRASP_MARGIN <= hand_pos <= h.open_position - _GRASP_MARGIN):
+            if hand_pos > h.open_position - _GRASP_MARGIN:
                 raise GraspFailed(
-                    f"Hand is not holding a labware (D6060={hand_pos}); nothing to put."
+                    f"Hand is not holding a labware (D6060={hand_pos} ~ open); nothing to put."
                 )
 
             instance.begin_execution()
