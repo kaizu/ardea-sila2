@@ -40,5 +40,5 @@ script_b    = "PickUp1"     # retract task
 
 [stations.Base2]            # labware station "Base2"
 position_mm = 2600          # carriage position [mm] (must be unique, within travel range)
-script_a    = "PickUp0"     # approach task
-script_b    = "PickUp1"     # retract task
+script_a    = "PickUp3"     # approach task
+script_b    = "PickUp4"     # retract task
