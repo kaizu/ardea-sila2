@@ -1,17 +1,18 @@
-"""LabwareService implementation (Ardea-specific) — PickLabware.
+"""LabwareService implementation (Ardea-specific): PickLabware / PutLabware.
 
-Test sequence (user-defined 2026-07-08):
-  1. verify the robot is at a movable pose (base or retract);
-  2. set the robot-operating signal D5000.1 ON (carriage lockout);
-  3. RunTask(pick_approach)   -- PickUp0, approach/grab;
-  4. close the hand (chuck);
-  5. RunTask(pick_retract)    -- PickUp1, ends at the retract pose;
-  6. clear D5000.1 (finally);
-  7. confirm the robot is at the retract pose.
+Both commands resolve a station from the current carriage position (motion
+``station_at``; no StationId argument yet), then run that station's task pair
+around a hand action:
+  PickLabware (robot must start at the base pose):
+    approach (script_a) -> close hand (chuck) -> retract (script_b) -> confirm retract.
+  PutLabware (robot must start at the retract pose):
+    approach (script_a) -> open hand (unchuck) -> retract (script_b) -> confirm retract
+    -> return_home (common task, hand must be open) -> confirm base.
 
 Reuses bcap task/pose helpers and the kvcomplus atomic primitives; holds the
 server OperationCoordinator for the whole sequence so no carriage move runs
-concurrently.
+concurrently. The D5000.1 carriage-lockout is NOT used (it breaks b-CAP RunTask;
+see note below).
 
 Grasp verification: PickLabware confirms a labware was grasped after closing
 (D6002.6==0 at chuck completion = stopped short on an object); PutLabware confirms
@@ -38,12 +39,12 @@ from sila2.server import MetadataDict, ObservableCommandInstanceWithIntermediate
 from kvcomplus_sila2 import kvcomplus
 
 from ..generated.labwareservice import (
-    CarriageNotAtOrigin,
     ControllerConnectionError,
     GraspFailed,
     HandError,
     HandNotOpen,
     LabwareServiceBase,
+    NoStationAtPosition,
     PickLabware_IntermediateResponses,
     PickLabware_Responses,
     PlcAccessError,
@@ -186,17 +187,18 @@ class LabwareServiceImpl(LabwareServiceBase):
         instance: ObservableCommandInstanceWithIntermediateResponses[PickLabware_IntermediateResponses],
     ) -> PickLabware_Responses:
         motion = self.parent_server.motion
-        pac = motion.pacscripts
 
         def phase(name: str) -> None:
             instance.send_intermediate_response(PickLabware_IntermediateResponses(Phase=name))
 
         # Hold the OperationCoordinator for the whole pick.
         with self.parent_server.operation_lock:
-            # Precondition: the carriage must be at the origin (0 mm).
+            # Resolve the station from the current carriage position (no StationId arg yet).
             carriage_pos = self._kv(lambda: kvcomplus.read_dword(self._plc(), DM, CARRIAGE_CUR_POS))
-            if carriage_pos != 0:
-                raise CarriageNotAtOrigin(f"Carriage is at {carriage_pos} mm; must be 0 mm to pick.")
+            resolved = motion.station_at(carriage_pos)
+            if resolved is None:
+                raise NoStationAtPosition(f"No station defined at carriage position {carriage_pos} mm.")
+            station_id, station = resolved
 
             # Precondition: the hand must be fully open.
             hand_pos = self._kv(lambda: kvcomplus.read_word(self._plc(), DM, HAND_CUR_POS))
@@ -210,11 +212,10 @@ class LabwareServiceImpl(LabwareServiceBase):
                 raise RobotNotAtBasePose("Robot is not at the base pose; pick refused.")
 
             instance.begin_execution()
-            phase("start")
+            phase(f"start (station {station_id})")
 
-            # (D5000.1 carriage-lockout intentionally omitted — see note at top.)
-            phase(f"approach: RunTask({pac.pick_approach})")
-            self._run_task(pac.pick_approach)
+            phase(f"approach: RunTask({station.script_a})")
+            self._run_task(station.script_a)
 
             phase("chuck: closing hand")
             grip_bit = self._hand_move(motion.hand.closed_position)
@@ -223,8 +224,8 @@ class LabwareServiceImpl(LabwareServiceBase):
             if grip_bit != 0:
                 raise GraspFailed("No labware grasped (hand reached full close = empty grip).")
 
-            phase(f"retract: RunTask({pac.pick_retract})")
-            self._run_task(pac.pick_retract)
+            phase(f"retract: RunTask({station.script_b})")
+            self._run_task(station.script_b)
 
             # Confirm the robot returned to the retract pose.
             phase("verify retract pose")
@@ -243,16 +244,17 @@ class LabwareServiceImpl(LabwareServiceBase):
         instance: ObservableCommandInstanceWithIntermediateResponses[PutLabware_IntermediateResponses],
     ) -> PutLabware_Responses:
         motion = self.parent_server.motion
-        pac = motion.pacscripts
 
         def phase(name: str) -> None:
             instance.send_intermediate_response(PutLabware_IntermediateResponses(Phase=name))
 
         with self.parent_server.operation_lock:
-            # Precondition: the carriage must be at the origin (0 mm).
+            # Resolve the station from the current carriage position (no StationId arg yet).
             carriage_pos = self._kv(lambda: kvcomplus.read_dword(self._plc(), DM, CARRIAGE_CUR_POS))
-            if carriage_pos != 0:
-                raise CarriageNotAtOrigin(f"Carriage is at {carriage_pos} mm; must be 0 mm to put.")
+            resolved = motion.station_at(carriage_pos)
+            if resolved is None:
+                raise NoStationAtPosition(f"No station defined at carriage position {carriage_pos} mm.")
+            station_id, station = resolved
 
             # Precondition: the robot must be at the retract pose (base pose is NOT allowed).
             angles = self._joint_angles()
@@ -269,16 +271,16 @@ class LabwareServiceImpl(LabwareServiceBase):
                 )
 
             instance.begin_execution()
-            phase("start")
+            phase(f"start (station {station_id})")
 
-            phase(f"approach: RunTask({pac.put_approach})")
-            self._run_task(pac.put_approach)
+            phase(f"approach: RunTask({station.script_a})")
+            self._run_task(station.script_a)
 
             phase("unchuck: opening hand")
             self._hand_move(motion.hand.open_position)
 
-            phase(f"retract: RunTask({pac.put_retract})")
-            self._run_task(pac.put_retract)
+            phase(f"retract: RunTask({station.script_b})")
+            self._run_task(station.script_b)
 
             phase("verify retract pose")
             if not motion.retract_pose.matches(self._joint_angles()):
@@ -293,8 +295,8 @@ class LabwareServiceImpl(LabwareServiceBase):
                     "return-home requires the hand open."
                 )
 
-            phase(f"return home: RunTask({pac.return_home})")
-            self._run_task(pac.return_home)
+            phase(f"return home: RunTask({motion.return_home})")
+            self._run_task(motion.return_home)
 
             phase("verify base pose")
             at_base = motion.base_pose.matches(self._joint_angles())

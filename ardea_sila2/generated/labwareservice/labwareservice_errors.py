@@ -22,11 +22,11 @@ class RobotNotAtBasePose(DefinedExecutionError):
         super().__init__(LabwareServiceFeature.defined_execution_errors["RobotNotAtBasePose"], message=message)
 
 
-class CarriageNotAtOrigin(DefinedExecutionError):
+class NoStationAtPosition(DefinedExecutionError):
     def __init__(self, message: Optional[str] = None):
         if message is None:
-            message = "The travel carriage is not at 0 mm; PickLabware requires the carriage at the origin."
-        super().__init__(LabwareServiceFeature.defined_execution_errors["CarriageNotAtOrigin"], message=message)
+            message = "No station is defined at the current carriage position, so Pick/Put cannot resolve which task pair to run."
+        super().__init__(LabwareServiceFeature.defined_execution_errors["NoStationAtPosition"], message=message)
 
 
 class HandNotOpen(DefinedExecutionError):

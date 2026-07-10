@@ -10,8 +10,9 @@ Step 1 covers the named robot poses used by ``RobotPoseService``:
 - ``[base_pose]``    — the base pose (home/origin), reference for ``IsAtBasePose``
 - ``[retract_pose]`` — the retract pose, reference for ``IsAtRetractPose``
 
-Carriage movement is permitted when the robot is at either pose. Later steps add
-``[carriage]`` / ``[stations]`` / ``[pacscripts]`` / ``[hand]`` sections here.
+Other sections: ``[carriage]`` (travel params), ``[hand]`` (gripper params),
+``[stations.<id>]`` (labware stations: position + approach/retract task pair), and
+``[common].return_home`` (the shared retract->base task).
 """
 
 from __future__ import annotations
@@ -80,14 +81,16 @@ class HandConfig:
 
 
 @dataclass
-class PacScriptConfig:
-    """DENSO task (PAC program) names run via b-CAP TaskService.RunTask."""
+class StationConfig:
+    """A labware station: carriage position [mm] + its approach/retract task pair.
 
-    pick_approach: str = "PickUp0"   # approach / grab position
-    pick_retract: str = "PickUp1"    # retract -> ends at the retract pose
-    put_approach: str = "PickUp0"    # approach (Put currently reuses the same tasks)
-    put_retract: str = "PickUp1"     # retract -> ends at the retract pose
-    return_home: str = "PickUp2"     # common: retract -> base pose (requires hand open)
+    Roles are common to all stations: script_a = approach, script_b = retract. The
+    same pair serves both Pick (hand closes) and Put (hand opens).
+    """
+
+    position_mm: int
+    script_a: str   # approach task (RunTask)
+    script_b: str   # retract task (RunTask)
 
 
 @dataclass
@@ -96,7 +99,20 @@ class MotionConfig:
     retract_pose: PoseConfig  # retract pose
     carriage: CarriageConfig = field(default_factory=CarriageConfig)
     hand: HandConfig = field(default_factory=HandConfig)
-    pacscripts: PacScriptConfig = field(default_factory=PacScriptConfig)
+    stations: dict[str, StationConfig] = field(default_factory=dict)
+    return_home: str = "PickUp2"  # common task: retract -> base pose (requires hand open)
+
+    def station_at(self, position_mm: int) -> "tuple[str, StationConfig] | None":
+        """Return (station_id, station) whose position matches ``position_mm``, else None.
+
+        Station positions are unique (enforced at load), so at most one matches. This
+        is how Pick/Put resolve the station from the current carriage position while
+        they take no StationId argument yet.
+        """
+        for sid, st in self.stations.items():
+            if st.position_mm == position_mm:
+                return sid, st
+        return None
 
 
 def _build_pose(data: Any, section: str) -> PoseConfig:
@@ -160,22 +176,52 @@ def _build_hand(data: Any) -> HandConfig:
     return h
 
 
-def _build_pacscripts(data: Any) -> PacScriptConfig:
-    if data is None:
-        return PacScriptConfig()
-    if not isinstance(data, dict):
-        raise MotionConfigError("[pacscripts] must be a table.")
-    known = {f.name for f in dataclasses.fields(PacScriptConfig)}
-    unknown = set(data) - known
-    if unknown:
-        raise MotionConfigError(f"Unknown key(s) in [pacscripts]: {', '.join(sorted(unknown))}")
-    p = PacScriptConfig(**{**dataclasses.asdict(PacScriptConfig()), **data})
-    if not all((p.pick_approach, p.pick_retract, p.put_approach, p.put_retract, p.return_home)):
-        raise MotionConfigError(
-            "[pacscripts] pick_approach/pick_retract/put_approach/put_retract/return_home "
-            "must be non-empty."
+def _build_stations(data: Any, carriage: CarriageConfig) -> dict[str, StationConfig]:
+    if not isinstance(data, dict) or not data:
+        raise MotionConfigError("At least one [stations.<id>] must be defined.")
+    known = {f.name for f in dataclasses.fields(StationConfig)}
+    stations: dict[str, StationConfig] = {}
+    positions: dict[int, str] = {}
+    for sid, sdata in data.items():
+        if not isinstance(sdata, dict):
+            raise MotionConfigError(f"[stations.{sid}] must be a table.")
+        unknown = set(sdata) - known
+        if unknown:
+            raise MotionConfigError(f"Unknown key(s) in [stations.{sid}]: {', '.join(sorted(unknown))}")
+        for key in ("position_mm", "script_a", "script_b"):
+            if key not in sdata:
+                raise MotionConfigError(f"Missing required [stations.{sid}].{key}.")
+        pos = sdata["position_mm"]
+        if not isinstance(pos, int) or not (carriage.range_min_mm <= pos <= carriage.range_max_mm):
+            raise MotionConfigError(
+                f"[stations.{sid}].position_mm must be an int within "
+                f"{carriage.range_min_mm}..{carriage.range_max_mm}."
+            )
+        if not sdata["script_a"] or not sdata["script_b"]:
+            raise MotionConfigError(f"[stations.{sid}].script_a/script_b must be non-empty.")
+        if pos in positions:
+            raise MotionConfigError(
+                f"[stations.{sid}].position_mm {pos} duplicates [stations.{positions[pos]}]; "
+                "station positions must be unique (Pick/Put resolve by current carriage position)."
+            )
+        positions[pos] = sid
+        stations[sid] = StationConfig(
+            position_mm=pos, script_a=str(sdata["script_a"]), script_b=str(sdata["script_b"])
         )
-    return p
+    return stations
+
+
+def _build_common(data: Any) -> str:
+    data = data or {}
+    if not isinstance(data, dict):
+        raise MotionConfigError("[common] must be a table.")
+    unknown = set(data) - {"return_home"}
+    if unknown:
+        raise MotionConfigError(f"Unknown key(s) in [common]: {', '.join(sorted(unknown))}")
+    return_home = data.get("return_home", "PickUp2")
+    if not return_home:
+        raise MotionConfigError("[common].return_home must be non-empty.")
+    return str(return_home)
 
 
 def load_motion_config(path: str | Path) -> MotionConfig:
@@ -195,21 +241,20 @@ def load_motion_config(path: str | Path) -> MotionConfig:
     retract = _build_pose(data.get("retract_pose"), "retract_pose")
     carriage = _build_carriage(data.get("carriage"))
     hand = _build_hand(data.get("hand"))
-    pacscripts = _build_pacscripts(data.get("pacscripts"))
+    stations = _build_stations(data.get("stations"), carriage)
+    return_home = _build_common(data.get("common"))
     cfg = MotionConfig(
-        base_pose=base, retract_pose=retract, carriage=carriage, hand=hand, pacscripts=pacscripts
+        base_pose=base, retract_pose=retract, carriage=carriage, hand=hand,
+        stations=stations, return_home=return_home,
     )
 
     logger.info(
-        "Motion config loaded from %s: base_pose=%s (tol %.4f deg), retract_pose=%s (tol %.4f deg), "
-        "carriage(speed=%d mm/s, accel=%d, range=%d..%d mm, move_timeout=%.1fs, poll=%.2fs), "
-        "hand(closed=%d, open=%d, speed=%d, force=%d), pacscripts(pick=%s/%s)",
+        "Motion config loaded from %s: base_pose=%s (tol %.4f), retract_pose=%s (tol %.4f), "
+        "carriage(range=%d..%d mm), hand(closed=%d, open=%d), return_home=%s, stations=%s",
         path, base.joint_angles_deg, base.tolerance_deg,
         retract.joint_angles_deg, retract.tolerance_deg,
-        carriage.default_speed_mm_s, carriage.accel_mm_s_ms,
         carriage.range_min_mm, carriage.range_max_mm,
-        carriage.move_timeout_s, carriage.poll_interval_s,
-        hand.closed_position, hand.open_position, hand.speed, hand.grip_force,
-        pacscripts.pick_approach, pacscripts.pick_retract,
+        hand.closed_position, hand.open_position, return_home,
+        {sid: (s.position_mm, s.script_a, s.script_b) for sid, s in stations.items()},
     )
     return cfg

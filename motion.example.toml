@@ -30,9 +30,15 @@ speed           = 0         # D5060 0=slowest..255=fastest
 grip_force      = 1         # D5070 fixed
 move_timeout_s  = 30
 
-[pacscripts]                # DENSO task names run via TaskService.RunTask
-pick_approach = "PickUp0"   # approach / grab position
-pick_retract  = "PickUp1"   # retract -> ends at the retract pose
-put_approach  = "PickUp0"   # Put currently reuses the same approach task
-put_retract   = "PickUp1"   # retract -> ends at the retract pose
-return_home   = "PickUp2"   # common: retract -> base pose (requires hand open)
+[common]                    # tasks shared by all stations
+return_home = "PickUp2"     # retract -> base pose (requires hand open)
+
+[stations.Base1]            # labware station "Base1" (add more [stations.<id>] as needed)
+position_mm = 0             # carriage position [mm] for this station (must be unique)
+script_a    = "PickUp0"     # approach task
+script_b    = "PickUp1"     # retract task
+
+[stations.Base2]            # labware station "Base2"
+position_mm = 2600          # carriage position [mm] (must be unique, within travel range)
+script_a    = "PickUp0"     # approach task
+script_b    = "PickUp1"     # retract task

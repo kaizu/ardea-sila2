@@ -43,7 +43,7 @@
     </IntermediateResponse>
     <DefinedExecutionErrors>
       <Identifier>RobotNotAtBasePose</Identifier>
-      <Identifier>CarriageNotAtOrigin</Identifier>
+      <Identifier>NoStationAtPosition</Identifier>
       <Identifier>HandNotOpen</Identifier>
       <Identifier>PoseNotRestored</Identifier>
       <Identifier>ControllerConnectionError</Identifier>
@@ -86,7 +86,7 @@
     </IntermediateResponse>
     <DefinedExecutionErrors>
       <Identifier>RobotNotAtRetractPose</Identifier>
-      <Identifier>CarriageNotAtOrigin</Identifier>
+      <Identifier>NoStationAtPosition</Identifier>
       <Identifier>HandNotOpen</Identifier>
       <Identifier>PoseNotRestored</Identifier>
       <Identifier>ControllerConnectionError</Identifier>
@@ -112,9 +112,9 @@
     <Description>The robot is not at the base pose, which PickLabware requires (the retract pose is not allowed).</Description>
   </DefinedExecutionError>
   <DefinedExecutionError>
-    <Identifier>CarriageNotAtOrigin</Identifier>
-    <DisplayName>Carriage Not At Origin</DisplayName>
-    <Description>The travel carriage is not at 0 mm; PickLabware requires the carriage at the origin.</Description>
+    <Identifier>NoStationAtPosition</Identifier>
+    <DisplayName>No Station At Position</DisplayName>
+    <Description>No station is defined at the current carriage position, so Pick/Put cannot resolve which task pair to run.</Description>
   </DefinedExecutionError>
   <DefinedExecutionError>
     <Identifier>HandNotOpen</Identifier>
