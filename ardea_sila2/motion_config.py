@@ -122,7 +122,7 @@ class MotionConfig:
     carriage: CarriageConfig = field(default_factory=CarriageConfig)
     hand: HandConfig = field(default_factory=HandConfig)
     stations: dict[str, StationConfig] = field(default_factory=dict)
-    return_home: str = "PickUp2"  # common task: retract -> base pose (requires hand open)
+    return_home: str = "BasePosition"  # common task: retract -> base pose (requires hand open)
     # Turn tasks used by RobotOrientationService.SetOrientation. Each ends at the
     # (inverse) retract pose regardless of the (known) starting pose.
     to_forward: str = "RetractPosition"          # turn to forward: ends at retract_pose
@@ -268,7 +268,7 @@ def _build_common(data: Any) -> "tuple[str, str, str]":
     data = data or {}
     if not isinstance(data, dict):
         raise MotionConfigError("[common] must be a table.")
-    defaults = {"return_home": "PickUp2", "to_forward": "RetractPosition",
+    defaults = {"return_home": "BasePosition", "to_forward": "RetractPosition",
                 "to_reverse": "InverseRetractPosition"}
     unknown = set(data) - set(defaults)
     if unknown:
