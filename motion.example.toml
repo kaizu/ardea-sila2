@@ -40,7 +40,8 @@ move_timeout_s     = 60     # max wait for a move to complete [s]
 poll_interval_s    = 0.2    # status/position poll interval [s]
 
 [hand]                      # gripper motion parameters (grip force fixed per hand doc)
-closed_position = 0         # D5050 fully closed
+closed_position = 0         # D5050 close target for short-edge grip (fully closed)
+closed_position_long = 110  # D5050 close target for long-edge grip (grip=long stations)
 open_position   = 140       # D5050 fully open
 speed           = 0         # D5060 0=slowest..255=fastest
 grip_force      = 1         # D5070 fixed

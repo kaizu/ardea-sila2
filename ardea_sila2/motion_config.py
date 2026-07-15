@@ -83,13 +83,23 @@ class CarriageConfig:
 
 @dataclass
 class HandConfig:
-    """Hand (gripper) motion parameters. Grip force is fixed per the hand doc."""
+    """Hand (gripper) motion parameters. Grip force is fixed per the hand doc.
 
-    closed_position: int = 0     # D5050 fully closed
-    open_position: int = 140     # D5050 fully open
-    speed: int = 0               # D5060 0=slowest .. 255=fastest
-    grip_force: int = 1          # D5070 fixed
+    The close target depends on the station's grip orientation: ``closed_position``
+    for a short-edge grip (fully closed) and ``closed_position_long`` for a long-edge
+    grip (the jaws need not close as far). See ``closed_position_for``.
+    """
+
+    closed_position: int = 0         # D5050 close target for short-edge grip (fully closed)
+    closed_position_long: int = 110  # D5050 close target for long-edge grip
+    open_position: int = 140         # D5050 fully open
+    speed: int = 0                   # D5060 0=slowest .. 255=fastest
+    grip_force: int = 1              # D5070 fixed
     move_timeout_s: float = 30.0
+
+    def closed_position_for(self, grip: str) -> int:
+        """Close (chuck) target for a station's grip: long -> closed_position_long, else closed_position."""
+        return self.closed_position_long if grip == "long" else self.closed_position
 
 
 # Allowed values for the per-station orientation settings.
@@ -248,6 +258,8 @@ def _build_hand(data: Any) -> HandConfig:
     h = HandConfig(**{**dataclasses.asdict(HandConfig()), **data})
     if not (0 <= h.closed_position <= h.open_position):
         raise MotionConfigError("[hand] must satisfy 0 <= closed_position <= open_position.")
+    if not (0 <= h.closed_position_long <= h.open_position):
+        raise MotionConfigError("[hand] must satisfy 0 <= closed_position_long <= open_position.")
     if not (0 <= h.speed <= 255):
         raise MotionConfigError("[hand] speed must be 0..255.")
     if h.move_timeout_s <= 0:

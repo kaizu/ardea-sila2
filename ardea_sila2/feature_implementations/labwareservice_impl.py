@@ -236,7 +236,8 @@ class LabwareServiceImpl(LabwareServiceBase):
             self._run_task(station.script_a)
 
             phase("chuck: closing hand")
-            self._hand_move(motion.hand.closed_position)
+            # Close target depends on the station's grip orientation (long -> not fully closed).
+            self._hand_move(motion.hand.closed_position_for(station.grip))
             # Grasp check by position: an empty hand springs back to the open position
             # once the move bit clears, while a held labware keeps the jaws closed
             # (at the object's width). After a short settle, "grasped" = not reopened.
