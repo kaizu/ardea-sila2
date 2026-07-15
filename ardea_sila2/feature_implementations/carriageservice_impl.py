@@ -92,8 +92,7 @@ class CarriageServiceImpl(CarriageServiceBase):
             raise ControllerConnectionError(str(e))
         except (ORiNException, RobotUnavailableError) as e:
             raise RobotAccessError(str(e))
-        motion = self.parent_server.motion
-        return motion.base_pose.matches(angles) or motion.retract_pose.matches(angles)
+        return self.parent_server.motion.at_movable_pose(angles)
 
     # ---- observable property: CarriagePosition ----
     def CarriagePosition_on_subscription(self, *, metadata: MetadataDict):
@@ -145,7 +144,8 @@ class CarriageServiceImpl(CarriageServiceBase):
             # Pose gate: robot must be at the base or retract pose.
             if not self._robot_in_movable_pose():
                 raise RobotNotInMovablePose(
-                    "Robot is at neither the base nor the retract pose; carriage move refused."
+                    "Robot is at none of the base, retract, inverse-base, or "
+                    "inverse-retract poses; carriage move refused."
                 )
 
             # Carriage must be ready (complete on, not moving) and fault-free.

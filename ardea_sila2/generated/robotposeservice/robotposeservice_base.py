@@ -6,15 +6,16 @@ from typing import TYPE_CHECKING
 
 from sila2.server import FeatureImplementationBase, MetadataDict
 
-from .robotposeservice_types import IsAtBasePose_Responses, IsAtRetractPose_Responses
+from .robotposeservice_types import (
+    IsAtBasePose_Responses,
+    IsAtInverseBasePose_Responses,
+    IsAtInverseRetractPose_Responses,
+    IsAtRetractPose_Responses,
+)
 
 if TYPE_CHECKING:
 
-    from typing import TypeVar
-
-    from sila2.server import SilaServer
-
-    Server = TypeVar("Server", bound=SilaServer)
+    from ...server import Server
 
 
 class RobotPoseServiceBase(FeatureImplementationBase, ABC):
@@ -27,8 +28,9 @@ class RobotPoseServiceBase(FeatureImplementationBase, ABC):
         The current joint angles (CurJnt) are read over b-CAP and compared element-wise
         against the reference pose from the motion configuration on the first six axes
         (J1..J6) within a small tolerance. These commands only read; they do not move
-        the robot. Carriage movement is permitted when the robot is at either the base
-        pose or the retract pose.
+        the robot. Carriage movement is permitted when the robot is at any of the base
+        pose, the retract pose, or their 180°-turned counterparts (inverse base / inverse
+        retract, the arm facing the opposite direction).
 
         """
         super().__init__(parent_server=parent_server)
@@ -65,6 +67,44 @@ class RobotPoseServiceBase(FeatureImplementationBase, ABC):
           :return:
 
               - IsAtRetractPose: True if the robot is at the retract pose.
+
+
+        """
+
+    @abstractmethod
+    def IsAtInverseBasePose(self, *, metadata: MetadataDict) -> IsAtInverseBasePose_Responses:
+        """
+
+        Return whether the robot is at the inverse base pose (the base pose turned 180°),
+        i.e. CurJnt matches the configured inverse_base_pose joint angles within tolerance
+        on the first six axes.
+
+
+
+          :param metadata: The SiLA Client Metadata attached to the call
+
+          :return:
+
+              - IsAtInverseBasePose: True if the robot is at the inverse base pose.
+
+
+        """
+
+    @abstractmethod
+    def IsAtInverseRetractPose(self, *, metadata: MetadataDict) -> IsAtInverseRetractPose_Responses:
+        """
+
+        Return whether the robot is at the inverse retract pose (the retract pose turned
+        180°), i.e. CurJnt matches the configured inverse_retract_pose joint angles within
+        tolerance on the first six axes.
+
+
+
+          :param metadata: The SiLA Client Metadata attached to the call
+
+          :return:
+
+              - IsAtInverseRetractPose: True if the robot is at the inverse retract pose.
 
 
         """

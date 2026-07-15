@@ -4,12 +4,16 @@ import "SiLAFramework.proto";
 
 package sila2.jp.riken.ardea.robotposeservice.v1;
 
-/* Ardea-specific checks for whether the DENSO robot is at a known named pose. The current joint angles (CurJnt) are read over b-CAP and compared element-wise against the reference pose from the motion configuration on the first six axes (J1..J6) within a small tolerance. These commands only read; they do not move the robot. Carriage movement is permitted when the robot is at either the base pose or the retract pose. */
+/* Ardea-specific checks for whether the DENSO robot is at a known named pose. The current joint angles (CurJnt) are read over b-CAP and compared element-wise against the reference pose from the motion configuration on the first six axes (J1..J6) within a small tolerance. These commands only read; they do not move the robot. Carriage movement is permitted when the robot is at any of the base pose, the retract pose, or their 180°-turned counterparts (inverse base / inverse retract, the arm facing the opposite direction). */
 service RobotPoseService {
   /* Return whether the robot is at the base pose (home/origin position), i.e. CurJnt matches the configured base_pose joint angles within tolerance on the first six axes. */
   rpc IsAtBasePose (sila2.jp.riken.ardea.robotposeservice.v1.IsAtBasePose_Parameters) returns (sila2.jp.riken.ardea.robotposeservice.v1.IsAtBasePose_Responses) {}
   /* Return whether the robot is at the retract pose (retract position), i.e. CurJnt matches the configured retract_pose joint angles within tolerance on the first six axes. */
   rpc IsAtRetractPose (sila2.jp.riken.ardea.robotposeservice.v1.IsAtRetractPose_Parameters) returns (sila2.jp.riken.ardea.robotposeservice.v1.IsAtRetractPose_Responses) {}
+  /* Return whether the robot is at the inverse base pose (the base pose turned 180°), i.e. CurJnt matches the configured inverse_base_pose joint angles within tolerance on the first six axes. */
+  rpc IsAtInverseBasePose (sila2.jp.riken.ardea.robotposeservice.v1.IsAtInverseBasePose_Parameters) returns (sila2.jp.riken.ardea.robotposeservice.v1.IsAtInverseBasePose_Responses) {}
+  /* Return whether the robot is at the inverse retract pose (the retract pose turned 180°), i.e. CurJnt matches the configured inverse_retract_pose joint angles within tolerance on the first six axes. */
+  rpc IsAtInverseRetractPose (sila2.jp.riken.ardea.robotposeservice.v1.IsAtInverseRetractPose_Parameters) returns (sila2.jp.riken.ardea.robotposeservice.v1.IsAtInverseRetractPose_Responses) {}
 }
 
 /* Parameters for IsAtBasePose */
@@ -28,4 +32,22 @@ message IsAtRetractPose_Parameters {
 /* Responses of IsAtRetractPose */
 message IsAtRetractPose_Responses {
   sila2.org.silastandard.Boolean IsAtRetractPose = 1;  /* True if the robot is at the retract pose. */
+}
+
+/* Parameters for IsAtInverseBasePose */
+message IsAtInverseBasePose_Parameters {
+}
+
+/* Responses of IsAtInverseBasePose */
+message IsAtInverseBasePose_Responses {
+  sila2.org.silastandard.Boolean IsAtInverseBasePose = 1;  /* True if the robot is at the inverse base pose. */
+}
+
+/* Parameters for IsAtInverseRetractPose */
+message IsAtInverseRetractPose_Parameters {
+}
+
+/* Responses of IsAtInverseRetractPose */
+message IsAtInverseRetractPose_Responses {
+  sila2.org.silastandard.Boolean IsAtInverseRetractPose = 1;  /* True if the robot is at the inverse retract pose. */
 }

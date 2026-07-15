@@ -9,6 +9,13 @@ Step 1 covers the named robot poses used by ``RobotPoseService``:
 
 - ``[base_pose]``    — the base pose (home/origin), reference for ``IsAtBasePose``
 - ``[retract_pose]`` — the retract pose, reference for ``IsAtRetractPose``
+- ``[inverse_base_pose]``    — the base pose turned 180° (J1 flipped); the arm faces
+  the opposite direction. Reference for ``IsAtInverseBasePose``.
+- ``[inverse_retract_pose]`` — the retract pose turned 180°. Reference for
+  ``IsAtInverseRetractPose``.
+
+The carriage may move when the robot is at **any** of these four poses (base,
+retract, or either inverse pose); see ``MotionConfig.at_movable_pose``.
 
 Other sections: ``[carriage]`` (travel params), ``[hand]`` (gripper params),
 ``[stations.<id>]`` (labware stations: position + approach/retract task pair), and
@@ -95,12 +102,29 @@ class StationConfig:
 
 @dataclass
 class MotionConfig:
-    base_pose: PoseConfig     # home/origin pose
-    retract_pose: PoseConfig  # retract pose
+    base_pose: PoseConfig             # home/origin pose
+    retract_pose: PoseConfig          # retract pose
+    inverse_base_pose: PoseConfig     # base pose turned 180° (J1 flipped)
+    inverse_retract_pose: PoseConfig  # retract pose turned 180°
     carriage: CarriageConfig = field(default_factory=CarriageConfig)
     hand: HandConfig = field(default_factory=HandConfig)
     stations: dict[str, StationConfig] = field(default_factory=dict)
     return_home: str = "PickUp2"  # common task: retract -> base pose (requires hand open)
+
+    def at_movable_pose(self, curjnt: list[float]) -> bool:
+        """True if ``curjnt`` matches any pose from which the carriage may move.
+
+        The carriage-move interlock permits motion at the base or retract pose and
+        at their 180°-turned counterparts (the arm facing the opposite direction);
+        at all four the arm is tucked clear of the travel envelope. Raises
+        ``MotionConfigError`` (via ``PoseConfig.matches``) if ``curjnt`` is too short.
+        """
+        return (
+            self.base_pose.matches(curjnt)
+            or self.retract_pose.matches(curjnt)
+            or self.inverse_base_pose.matches(curjnt)
+            or self.inverse_retract_pose.matches(curjnt)
+        )
 
     def station_at(self, position_mm: int) -> "tuple[str, StationConfig] | None":
         """Return (station_id, station) whose position matches ``position_mm``, else None.
@@ -239,20 +263,25 @@ def load_motion_config(path: str | Path) -> MotionConfig:
 
     base = _build_pose(data.get("base_pose"), "base_pose")
     retract = _build_pose(data.get("retract_pose"), "retract_pose")
+    inverse_base = _build_pose(data.get("inverse_base_pose"), "inverse_base_pose")
+    inverse_retract = _build_pose(data.get("inverse_retract_pose"), "inverse_retract_pose")
     carriage = _build_carriage(data.get("carriage"))
     hand = _build_hand(data.get("hand"))
     stations = _build_stations(data.get("stations"), carriage)
     return_home = _build_common(data.get("common"))
     cfg = MotionConfig(
-        base_pose=base, retract_pose=retract, carriage=carriage, hand=hand,
-        stations=stations, return_home=return_home,
+        base_pose=base, retract_pose=retract,
+        inverse_base_pose=inverse_base, inverse_retract_pose=inverse_retract,
+        carriage=carriage, hand=hand, stations=stations, return_home=return_home,
     )
 
     logger.info(
         "Motion config loaded from %s: base_pose=%s (tol %.4f), retract_pose=%s (tol %.4f), "
+        "inverse_base_pose=%s, inverse_retract_pose=%s, "
         "carriage(range=%d..%d mm), hand(closed=%d, open=%d), return_home=%s, stations=%s",
         path, base.joint_angles_deg, base.tolerance_deg,
         retract.joint_angles_deg, retract.tolerance_deg,
+        inverse_base.joint_angles_deg, inverse_retract.joint_angles_deg,
         carriage.range_min_mm, carriage.range_max_mm,
         hand.closed_position, hand.open_position, return_home,
         {sid: (s.position_mm, s.script_a, s.script_b) for sid, s in stations.items()},

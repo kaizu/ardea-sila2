@@ -11,8 +11,19 @@
 joint_angles_deg = [89.994, 25.005, -115.007, 180.027, 89.998, -90.009]
 tolerance_deg    = 0.05   # loosened from 0.01: retract-pose J3 varied ~0.02° depending on how it was reached
 
-[retract_pose]   # retract pose. Carriage move allowed at base_pose OR retract_pose.
+[retract_pose]   # retract pose. Carriage move allowed at any of the 4 poses below.
 joint_angles_deg = [90.007, 25.003, -114.999, 120.002, 89.998, -89.999]
+tolerance_deg    = 0.05
+
+# The two "inverse" poses are the base/retract poses turned 180° (J1 flipped ~-180°;
+# the arm faces the opposite direction). Carriage move is also allowed at these. Measure
+# each on the real arm (jog there, read CurJnt) and paste the values here.
+[inverse_retract_pose]   # retract pose turned 180°
+joint_angles_deg = [-89.993, 25.002, -115.001, 120.002, 89.999, -89.999]
+tolerance_deg    = 0.05
+
+[inverse_base_pose]      # base pose turned 180°
+joint_angles_deg = [-90.019, 25.006, -115.070, 180.018, 89.998, -90.013]
 tolerance_deg    = 0.05
 
 [carriage]                  # travel-carriage motion parameters (fixed; not command args)

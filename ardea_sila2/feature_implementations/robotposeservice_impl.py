@@ -1,8 +1,9 @@
 """RobotPoseService implementation (Ardea-specific).
 
 Reads the robot's current joint angles over b-CAP (reusing ``bcap_sila2.bcap``)
-and reports whether the arm is at a configured named pose — the base pose (home/origin)
-or the retract pose — by comparing the first six axes within tolerance.
+and reports whether the arm is at a configured named pose — the base pose (home/origin),
+the retract pose, or either of their 180°-turned counterparts (inverse base / inverse
+retract) — by comparing the first six axes within tolerance.
 Read-only: it never moves the robot. Reference poses and tolerance come from the
 motion configuration (``self.parent_server.motion``); see ``motion_config``.
 """
@@ -18,6 +19,8 @@ from sila2.server import MetadataDict
 from ..generated.robotposeservice import (
     ControllerConnectionError,
     IsAtBasePose_Responses,
+    IsAtInverseBasePose_Responses,
+    IsAtInverseRetractPose_Responses,
     IsAtRetractPose_Responses,
     PoseDimensionMismatch,
     RobotAccessError,
@@ -58,3 +61,19 @@ class RobotPoseServiceImpl(RobotPoseServiceBase):
         except MotionConfigError as e:
             raise PoseDimensionMismatch(str(e))
         return IsAtRetractPose_Responses(IsAtRetractPose=ok)
+
+    def IsAtInverseBasePose(self, *, metadata: MetadataDict) -> IsAtInverseBasePose_Responses:
+        angles = self._current_joint_angles()
+        try:
+            ok = self.parent_server.motion.inverse_base_pose.matches(angles)
+        except MotionConfigError as e:
+            raise PoseDimensionMismatch(str(e))
+        return IsAtInverseBasePose_Responses(IsAtInverseBasePose=ok)
+
+    def IsAtInverseRetractPose(self, *, metadata: MetadataDict) -> IsAtInverseRetractPose_Responses:
+        angles = self._current_joint_angles()
+        try:
+            ok = self.parent_server.motion.inverse_retract_pose.matches(angles)
+        except MotionConfigError as e:
+            raise PoseDimensionMismatch(str(e))
+        return IsAtInverseRetractPose_Responses(IsAtInverseRetractPose=ok)

@@ -3,7 +3,12 @@ from .robotposeservice_base import RobotPoseServiceBase
 from .robotposeservice_client import RobotPoseServiceClient
 from .robotposeservice_errors import ControllerConnectionError, PoseDimensionMismatch, RobotAccessError
 from .robotposeservice_feature import RobotPoseServiceFeature
-from .robotposeservice_types import IsAtBasePose_Responses, IsAtRetractPose_Responses
+from .robotposeservice_types import (
+    IsAtBasePose_Responses,
+    IsAtInverseBasePose_Responses,
+    IsAtInverseRetractPose_Responses,
+    IsAtRetractPose_Responses,
+)
 
 __all__ = [
     "RobotPoseServiceBase",
@@ -11,6 +16,8 @@ __all__ = [
     "RobotPoseServiceClient",
     "IsAtBasePose_Responses",
     "IsAtRetractPose_Responses",
+    "IsAtInverseBasePose_Responses",
+    "IsAtInverseRetractPose_Responses",
     "ControllerConnectionError",
     "RobotAccessError",
     "PoseDimensionMismatch",

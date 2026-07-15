@@ -18,3 +18,19 @@ class IsAtRetractPose_Responses(NamedTuple):
     """
     True if the robot is at the retract pose.
     """
+
+
+class IsAtInverseBasePose_Responses(NamedTuple):
+
+    IsAtInverseBasePose: bool
+    """
+    True if the robot is at the inverse base pose.
+    """
+
+
+class IsAtInverseRetractPose_Responses(NamedTuple):
+
+    IsAtInverseRetractPose: bool
+    """
+    True if the robot is at the inverse retract pose.
+    """
