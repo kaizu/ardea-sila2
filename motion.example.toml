@@ -7,13 +7,16 @@
 # The values below were measured on our robot (192.168.0.11) on 2026-07-08;
 # RE-MEASURE them for your own machine.
 
-[base_pose]      # home/origin pose (reached by task PickUp2; also the initial pose)
+# task = PacScript that drives the arm to this pose (used by SetOrientation).
+[base_pose]      # home/origin pose (also the initial pose)
 joint_angles_deg = [89.994, 25.005, -115.007, 180.027, 89.998, -90.009]
 tolerance_deg    = 0.1    # loosened 0.01 -> 0.05 -> 0.1: pose J3 varies with how the pose is reached
+task             = "BasePosition"
 
 [retract_pose]   # retract pose. Carriage move allowed at any of the 4 poses below.
 joint_angles_deg = [90.007, 25.003, -114.999, 120.002, 89.998, -89.999]
 tolerance_deg    = 0.1
+task             = "RetractPosition"
 
 # The two "inverse" poses are the base/retract poses turned 180° (J1 flipped ~-180°;
 # the arm faces the opposite direction). Carriage move is also allowed at these. Measure
@@ -21,10 +24,12 @@ tolerance_deg    = 0.1
 [inverse_retract_pose]   # retract pose turned 180°
 joint_angles_deg = [-89.993, 25.002, -115.001, 120.002, 89.999, -89.999]
 tolerance_deg    = 0.1
+task             = "InverseRetractPosition"
 
 [inverse_base_pose]      # base pose turned 180°
 joint_angles_deg = [-90.019, 25.006, -115.070, 180.018, 89.998, -90.013]
 tolerance_deg    = 0.1
+task             = "InverseBasePosition"
 
 [carriage]                  # travel-carriage motion parameters (fixed; not command args)
 default_speed_mm_s = 50     # positioning speed [mm/s]
@@ -44,9 +49,6 @@ move_timeout_s  = 30
 [common]                    # tasks shared by all stations
 return_home = "BasePosition"  # retract -> base pose (forward stations; requires hand open)
 return_home_reverse = "InverseBasePosition"  # inverse retract -> inverse base (reverse stations)
-# RobotOrientationService.SetOrientation turn tasks (end at the (inverse) retract pose):
-to_forward  = "RetractPosition"         # turn to forward -> retract pose
-to_reverse  = "InverseRetractPosition"  # turn to reverse -> inverse retract pose
 
 # direction = arm facing: "forward" (normal poses) | "reverse" (180°-turned inverse poses).
 # grip = plate grip orientation: "short"-edge | "long"-edge. Both default if omitted

@@ -93,26 +93,24 @@ class RobotOrientationServiceImpl(RobotOrientationServiceBase):
 
         # One motion at a time (shared robot/carriage OperationCoordinator).
         with self.parent_server.operation_lock:
-            # Precondition: the arm must be at one of the four known poses.
-            if not motion.at_movable_pose(self._joint_angles()):
+            # Pick the target pose from the current pose family + requested facing:
+            # a base-family pose stays base (base/inverse-base), a retract-family pose
+            # stays retract, and only the forward/reverse facing flips.
+            target = motion.orientation_target(self._joint_angles(), direction)
+            if target is None:
                 raise RobotNotAtKnownPose(
                     "Robot is at none of the base/retract/inverse-base/inverse-retract "
                     "poses; orientation change refused."
                 )
 
-            if direction == "forward":
-                task, expected, expected_name = motion.to_forward, motion.retract_pose, "retract"
-            else:
-                task, expected, expected_name = motion.to_reverse, motion.inverse_retract_pose, "inverse retract"
-
             instance.begin_execution()
-            phase(f"turning {direction}: RunTask({task})")
-            self._run_task(task)
+            phase(f"turning {direction}: RunTask({target.task})")
+            self._run_task(target.task)
 
-            phase(f"verify {expected_name} pose")
-            if not expected.matches(self._joint_angles()):
+            phase("verify target pose")
+            if not target.matches(self._joint_angles()):
                 raise PoseNotRestored(
-                    f"Robot did not reach the {expected_name} pose after RunTask({task})."
+                    f"Robot did not reach the target pose after RunTask({target.task})."
                 )
 
             instance.progress = 1.0

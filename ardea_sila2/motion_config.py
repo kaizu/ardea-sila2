@@ -44,10 +44,15 @@ class MotionConfigError(Exception):
 
 @dataclass
 class PoseConfig:
-    """A named robot pose: reference joint angles [deg] + match tolerance [deg]."""
+    """A named robot pose: reference joint angles [deg], match tolerance [deg], and
+    the PacScript (``task``) that drives the arm to this pose from any known pose.
+
+    ``task`` is used by RobotOrientationService.SetOrientation to reach this pose.
+    """
 
     joint_angles_deg: list[float]
     tolerance_deg: float = 0.01
+    task: str = ""  # PacScript that moves the arm to this pose (RunTask)
 
     def matches(self, curjnt: list[float]) -> bool:
         """True if ``curjnt`` matches this pose within tolerance on the first 6 axes.
@@ -125,10 +130,21 @@ class MotionConfig:
     return_home: str = "BasePosition"  # common task: retract -> base pose (requires hand open)
     # reverse counterpart: inverse retract -> inverse base pose (requires hand open)
     return_home_reverse: str = "InverseBasePosition"
-    # Turn tasks used by RobotOrientationService.SetOrientation. Each ends at the
-    # (inverse) retract pose regardless of the (known) starting pose.
-    to_forward: str = "RetractPosition"          # turn to forward: ends at retract_pose
-    to_reverse: str = "InverseRetractPosition"   # turn to reverse: ends at inverse_retract_pose
+
+    def orientation_target(self, curjnt: list[float], direction: str) -> "PoseConfig | None":
+        """Return the pose SetOrientation should move to, or None if not at a known pose.
+
+        The pose *family* (base vs retract) is preserved and only the facing flips:
+        from a base-family pose (base/inverse-base) -> base_pose (forward) or
+        inverse_base_pose (reverse); from a retract-family pose -> retract_pose or
+        inverse_retract_pose. Raises ``MotionConfigError`` via ``matches`` if curjnt
+        is too short.
+        """
+        if self.base_pose.matches(curjnt) or self.inverse_base_pose.matches(curjnt):
+            return self.base_pose if direction == "forward" else self.inverse_base_pose
+        if self.retract_pose.matches(curjnt) or self.inverse_retract_pose.matches(curjnt):
+            return self.retract_pose if direction == "forward" else self.inverse_retract_pose
+        return None
 
     def poses_for(self, direction: str) -> "tuple[PoseConfig, PoseConfig]":
         """Return the (base-like, retract-like) poses for a station ``direction``.
@@ -191,7 +207,12 @@ def _build_pose(data: Any, section: str) -> PoseConfig:
     tol = data.get("tolerance_deg", 0.01)
     if not isinstance(tol, (int, float)) or tol <= 0:
         raise MotionConfigError(f"[{section}].tolerance_deg must be a number > 0.")
-    return PoseConfig(joint_angles_deg=[float(x) for x in angles], tolerance_deg=float(tol))
+    task = data.get("task", "")
+    if not isinstance(task, str) or not task:
+        raise MotionConfigError(
+            f"[{section}].task must be a non-empty string (the PacScript that reaches this pose)."
+        )
+    return PoseConfig(joint_angles_deg=[float(x) for x in angles], tolerance_deg=float(tol), task=task)
 
 
 def _build_carriage(data: Any) -> CarriageConfig:
@@ -280,13 +301,12 @@ def _build_stations(data: Any, carriage: CarriageConfig) -> dict[str, StationCon
     return stations
 
 
-def _build_common(data: Any) -> "tuple[str, str, str, str]":
-    """Return (return_home, return_home_reverse, to_forward, to_reverse) from [common]."""
+def _build_common(data: Any) -> "tuple[str, str]":
+    """Return (return_home, return_home_reverse) task names from [common]."""
     data = data or {}
     if not isinstance(data, dict):
         raise MotionConfigError("[common] must be a table.")
-    defaults = {"return_home": "BasePosition", "return_home_reverse": "InverseBasePosition",
-                "to_forward": "RetractPosition", "to_reverse": "InverseRetractPosition"}
+    defaults = {"return_home": "BasePosition", "return_home_reverse": "InverseBasePosition"}
     unknown = set(data) - set(defaults)
     if unknown:
         raise MotionConfigError(f"Unknown key(s) in [common]: {', '.join(sorted(unknown))}")
@@ -294,8 +314,7 @@ def _build_common(data: Any) -> "tuple[str, str, str, str]":
     for k in defaults:
         if not values[k]:
             raise MotionConfigError(f"[common].{k} must be non-empty.")
-    return (values["return_home"], values["return_home_reverse"],
-            values["to_forward"], values["to_reverse"])
+    return values["return_home"], values["return_home_reverse"]
 
 
 def load_motion_config(path: str | Path) -> MotionConfig:
@@ -318,25 +337,26 @@ def load_motion_config(path: str | Path) -> MotionConfig:
     carriage = _build_carriage(data.get("carriage"))
     hand = _build_hand(data.get("hand"))
     stations = _build_stations(data.get("stations"), carriage)
-    return_home, return_home_reverse, to_forward, to_reverse = _build_common(data.get("common"))
+    return_home, return_home_reverse = _build_common(data.get("common"))
     cfg = MotionConfig(
         base_pose=base, retract_pose=retract,
         inverse_base_pose=inverse_base, inverse_retract_pose=inverse_retract,
         carriage=carriage, hand=hand, stations=stations, return_home=return_home,
-        return_home_reverse=return_home_reverse, to_forward=to_forward, to_reverse=to_reverse,
+        return_home_reverse=return_home_reverse,
     )
 
     logger.info(
-        "Motion config loaded from %s: base_pose=%s (tol %.4f), retract_pose=%s (tol %.4f), "
-        "inverse_base_pose=%s, inverse_retract_pose=%s, "
-        "carriage(range=%d..%d mm), hand(closed=%d, open=%d), "
-        "return_home=%s, return_home_reverse=%s, to_forward=%s, to_reverse=%s, stations=%s",
-        path, base.joint_angles_deg, base.tolerance_deg,
-        retract.joint_angles_deg, retract.tolerance_deg,
-        inverse_base.joint_angles_deg, inverse_retract.joint_angles_deg,
+        "Motion config loaded from %s: base_pose=%s (tol %.4f, task=%s), "
+        "retract_pose=%s (tol %.4f, task=%s), inverse_base_pose=%s (task=%s), "
+        "inverse_retract_pose=%s (task=%s), carriage(range=%d..%d mm), hand(closed=%d, open=%d), "
+        "return_home=%s, return_home_reverse=%s, stations=%s",
+        path, base.joint_angles_deg, base.tolerance_deg, base.task,
+        retract.joint_angles_deg, retract.tolerance_deg, retract.task,
+        inverse_base.joint_angles_deg, inverse_base.task,
+        inverse_retract.joint_angles_deg, inverse_retract.task,
         carriage.range_min_mm, carriage.range_max_mm,
         hand.closed_position, hand.open_position,
-        return_home, return_home_reverse, to_forward, to_reverse,
+        return_home, return_home_reverse,
         {sid: (s.position_mm, s.script_a, s.script_b, s.direction, s.grip)
          for sid, s in stations.items()},
     )
