@@ -44,12 +44,19 @@ move_timeout_s  = 30
 [common]                    # tasks shared by all stations
 return_home = "PickUp2"     # retract -> base pose (requires hand open)
 
+# direction = arm facing: "forward" (normal poses) | "reverse" (180°-turned inverse poses).
+# grip = plate grip orientation: "short"-edge | "long"-edge. Both default if omitted
+# (forward/short) and are stored only for now (not yet wired into Pick/Put).
 [stations.Base1]            # labware station "Base1" (add more [stations.<id>] as needed)
 position_mm = 0             # carriage position [mm] for this station (must be unique)
 script_a    = "PickUp0"     # approach task
 script_b    = "PickUp1"     # retract task
+direction   = "forward"     # forward | reverse
+grip        = "short"       # short | long
 
 [stations.Base2]            # labware station "Base2"
 position_mm = 2600          # carriage position [mm] (must be unique, within travel range)
 script_a    = "PickUp3"     # approach task
 script_b    = "PickUp4"     # retract task
+direction   = "forward"     # forward | reverse
+grip        = "short"       # short | long

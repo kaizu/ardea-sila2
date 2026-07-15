@@ -87,17 +87,30 @@ class HandConfig:
     move_timeout_s: float = 30.0
 
 
+# Allowed values for the per-station orientation settings.
+STATION_DIRECTIONS = ("forward", "reverse")  # arm facing at the station
+STATION_GRIPS = ("short", "long")            # plate grip: short-edge / long-edge
+
+
 @dataclass
 class StationConfig:
     """A labware station: carriage position [mm] + its approach/retract task pair.
 
     Roles are common to all stations: script_a = approach, script_b = retract. The
     same pair serves both Pick (hand closes) and Put (hand opens).
+
+    ``direction`` records which way the arm faces to work this station: ``forward``
+    uses the normal poses (base/retract), ``reverse`` the 180°-turned inverse poses
+    (inverse_base/inverse_retract). ``grip`` records the plate grip orientation
+    (``short``-edge / ``long``-edge). Both are stored for now and not yet wired into
+    Pick/Put behaviour (all current stations are forward + short).
     """
 
     position_mm: int
-    script_a: str   # approach task (RunTask)
-    script_b: str   # retract task (RunTask)
+    script_a: str              # approach task (RunTask)
+    script_b: str              # retract task (RunTask)
+    direction: str = "forward"  # "forward" | "reverse" (see STATION_DIRECTIONS)
+    grip: str = "short"         # "short" | "long" (see STATION_GRIPS)
 
 
 @dataclass
@@ -223,6 +236,16 @@ def _build_stations(data: Any, carriage: CarriageConfig) -> dict[str, StationCon
             )
         if not sdata["script_a"] or not sdata["script_b"]:
             raise MotionConfigError(f"[stations.{sid}].script_a/script_b must be non-empty.")
+        direction = sdata.get("direction", "forward")
+        if direction not in STATION_DIRECTIONS:
+            raise MotionConfigError(
+                f"[stations.{sid}].direction must be one of {STATION_DIRECTIONS} (got {direction!r})."
+            )
+        grip = sdata.get("grip", "short")
+        if grip not in STATION_GRIPS:
+            raise MotionConfigError(
+                f"[stations.{sid}].grip must be one of {STATION_GRIPS} (got {grip!r})."
+            )
         if pos in positions:
             raise MotionConfigError(
                 f"[stations.{sid}].position_mm {pos} duplicates [stations.{positions[pos]}]; "
@@ -230,7 +253,8 @@ def _build_stations(data: Any, carriage: CarriageConfig) -> dict[str, StationCon
             )
         positions[pos] = sid
         stations[sid] = StationConfig(
-            position_mm=pos, script_a=str(sdata["script_a"]), script_b=str(sdata["script_b"])
+            position_mm=pos, script_a=str(sdata["script_a"]), script_b=str(sdata["script_b"]),
+            direction=direction, grip=grip,
         )
     return stations
 
@@ -284,6 +308,7 @@ def load_motion_config(path: str | Path) -> MotionConfig:
         inverse_base.joint_angles_deg, inverse_retract.joint_angles_deg,
         carriage.range_min_mm, carriage.range_max_mm,
         hand.closed_position, hand.open_position, return_home,
-        {sid: (s.position_mm, s.script_a, s.script_b) for sid, s in stations.items()},
+        {sid: (s.position_mm, s.script_a, s.script_b, s.direction, s.grip)
+         for sid, s in stations.items()},
     )
     return cfg
