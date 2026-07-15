@@ -42,7 +42,8 @@ grip_force      = 1         # D5070 fixed
 move_timeout_s  = 30
 
 [common]                    # tasks shared by all stations
-return_home = "BasePosition"  # retract -> base pose (requires hand open)
+return_home = "BasePosition"  # retract -> base pose (forward stations; requires hand open)
+return_home_reverse = "InverseBasePosition"  # inverse retract -> inverse base (reverse stations)
 # RobotOrientationService.SetOrientation turn tasks (end at the (inverse) retract pose):
 to_forward  = "RetractPosition"         # turn to forward -> retract pose
 to_reverse  = "InverseRetractPosition"  # turn to reverse -> inverse retract pose

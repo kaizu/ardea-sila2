@@ -2,12 +2,14 @@
 
 Both commands resolve a station from the current carriage position (motion
 ``station_at``; no StationId argument yet), then run that station's task pair
-around a hand action:
-  PickLabware (robot must start at the base pose):
+around a hand action. The poses used depend on the station's ``direction``:
+forward uses the base/retract poses, reverse uses the 180°-turned inverse
+base/retract poses (motion ``poses_for`` / ``return_home_for``):
+  PickLabware (robot must start at the direction's base pose):
     approach (script_a) -> close hand (chuck) -> retract (script_b) -> confirm retract.
-  PutLabware (robot must start at the retract pose):
+  PutLabware (robot must start at the direction's retract pose):
     approach (script_a) -> open hand (unchuck) -> retract (script_b) -> confirm retract
-    -> return_home (common task, hand must be open) -> confirm base.
+    -> return_home (direction's common task, hand must be open) -> confirm base.
 
 Reuses bcap task/pose helpers and the kvcomplus atomic primitives; holds the
 server OperationCoordinator for the whole sequence so no carriage move runs
@@ -208,19 +210,27 @@ class LabwareServiceImpl(LabwareServiceBase):
                 raise NoStationAtPosition(f"No station defined at carriage position {carriage_pos} mm.")
             station_id, station = resolved
 
+            # Poses depend on the station's facing: forward -> base/retract,
+            # reverse -> inverse base/retract (arm turned 180°).
+            base_like, retract_like = motion.poses_for(station.direction)
+            base_name = "inverse base" if station.direction == "reverse" else "base"
+            retract_name = "inverse retract" if station.direction == "reverse" else "retract"
+
             # Precondition: the hand must be fully open.
             hand_pos = self._kv(lambda: kvcomplus.read_word(self._plc(), DM, HAND_CUR_POS))
             open_pos = motion.hand.open_position
             if abs(hand_pos - open_pos) > _HAND_OPEN_TOL:
                 raise HandNotOpen(f"Hand is at {hand_pos} (open={open_pos}); must be fully open to pick.")
 
-            # Pose gate: PickLabware requires the base pose only (retract not allowed).
+            # Pose gate: PickLabware requires the direction's start pose only.
             angles = self._joint_angles()
-            if not motion.base_pose.matches(angles):
-                raise RobotNotAtBasePose("Robot is not at the base pose; pick refused.")
+            if not base_like.matches(angles):
+                raise RobotNotAtBasePose(
+                    f"Robot is not at the {base_name} pose ({station.direction} station); pick refused."
+                )
 
             instance.begin_execution()
-            phase(f"start (station {station_id})")
+            phase(f"start (station {station_id}, {station.direction})")
 
             phase(f"approach: RunTask({station.script_a})")
             self._run_task(station.script_a)
@@ -238,11 +248,13 @@ class LabwareServiceImpl(LabwareServiceBase):
             phase(f"retract: RunTask({station.script_b})")
             self._run_task(station.script_b)
 
-            # Confirm the robot returned to the retract pose.
-            phase("verify retract pose")
-            at_retract = motion.retract_pose.matches(self._joint_angles())
+            # Confirm the robot returned to the direction's retract pose.
+            phase(f"verify {retract_name} pose")
+            at_retract = retract_like.matches(self._joint_angles())
             if not at_retract:
-                raise PoseNotRestored("Robot did not return to the retract pose after pick-retract.")
+                raise PoseNotRestored(
+                    f"Robot did not return to the {retract_name} pose after pick-retract."
+                )
 
             instance.progress = 1.0
             return PickLabware_Responses(AtRetractPose=at_retract)
@@ -267,10 +279,18 @@ class LabwareServiceImpl(LabwareServiceBase):
                 raise NoStationAtPosition(f"No station defined at carriage position {carriage_pos} mm.")
             station_id, station = resolved
 
-            # Precondition: the robot must be at the retract pose (base pose is NOT allowed).
+            # Poses depend on the station's facing (forward -> base/retract,
+            # reverse -> inverse base/retract).
+            base_like, retract_like = motion.poses_for(station.direction)
+            base_name = "inverse base" if station.direction == "reverse" else "base"
+            retract_name = "inverse retract" if station.direction == "reverse" else "retract"
+
+            # Precondition: the robot must be at the direction's retract pose (start pose).
             angles = self._joint_angles()
-            if not motion.retract_pose.matches(angles):
-                raise RobotNotAtRetractPose("Robot is not at the retract pose; put refused.")
+            if not retract_like.matches(angles):
+                raise RobotNotAtRetractPose(
+                    f"Robot is not at the {retract_name} pose ({station.direction} station); put refused."
+                )
 
             # Precondition: the hand must be holding a labware, i.e. the jaws are not
             # (near) fully open. An empty hand rests at ~open_position; a held one
@@ -283,7 +303,7 @@ class LabwareServiceImpl(LabwareServiceBase):
                 )
 
             instance.begin_execution()
-            phase(f"start (station {station_id})")
+            phase(f"start (station {station_id}, {station.direction})")
 
             phase(f"approach: RunTask({station.script_a})")
             self._run_task(station.script_a)
@@ -294,12 +314,13 @@ class LabwareServiceImpl(LabwareServiceBase):
             phase(f"retract: RunTask({station.script_b})")
             self._run_task(station.script_b)
 
-            phase("verify retract pose")
-            if not motion.retract_pose.matches(self._joint_angles()):
-                raise PoseNotRestored("Robot did not return to the retract pose after put-retract.")
+            phase(f"verify {retract_name} pose")
+            if not retract_like.matches(self._joint_angles()):
+                raise PoseNotRestored(f"Robot did not return to the {retract_name} pose after put-retract.")
 
-            # Return to the base pose. PickUp2 (return_home) only runs with the hand
-            # open, which it is after the unchuck above; verify defensively.
+            # Return to the direction's base pose. The return-home task only runs with
+            # the hand open, which it is after the unchuck above; verify defensively.
+            return_home = motion.return_home_for(station.direction)
             hand_pos = self._kv(lambda: kvcomplus.read_word(self._plc(), DM, HAND_CUR_POS))
             if abs(hand_pos - motion.hand.open_position) > _HAND_OPEN_TOL:
                 raise HandNotOpen(
@@ -307,13 +328,13 @@ class LabwareServiceImpl(LabwareServiceBase):
                     "return-home requires the hand open."
                 )
 
-            phase(f"return home: RunTask({motion.return_home})")
-            self._run_task(motion.return_home)
+            phase(f"return home: RunTask({return_home})")
+            self._run_task(return_home)
 
-            phase("verify base pose")
-            at_base = motion.base_pose.matches(self._joint_angles())
+            phase(f"verify {base_name} pose")
+            at_base = base_like.matches(self._joint_angles())
             if not at_base:
-                raise PoseNotRestored("Robot did not return to the base pose after return-home.")
+                raise PoseNotRestored(f"Robot did not return to the {base_name} pose after return-home.")
 
             instance.progress = 1.0
             return PutLabware_Responses(AtBasePose=at_base)
