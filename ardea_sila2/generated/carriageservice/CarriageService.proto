@@ -24,6 +24,13 @@ service CarriageService {
       streamed periodically to subscribers.
      */
   rpc Subscribe_CarriagePosition (sila2.jp.riken.ardea.carriageservice.v1.Subscribe_CarriagePosition_Parameters) returns (stream sila2.jp.riken.ardea.carriageservice.v1.Subscribe_CarriagePosition_Responses) {}
+  /* 
+      The identifiers of all stations registered in the motion configuration
+      ([stations.<id>]). These are the station names a client may target; the
+      list is fixed for the server lifetime (it comes from the motion config loaded
+      at startup). Ordering is not significant.
+     */
+  rpc Get_StationNames (sila2.jp.riken.ardea.carriageservice.v1.Get_StationNames_Parameters) returns (sila2.jp.riken.ardea.carriageservice.v1.Get_StationNames_Responses) {}
 }
 
 /* Parameters for MoveCarriage */
@@ -48,4 +55,13 @@ message Subscribe_CarriagePosition_Parameters {
 /* Responses of CarriagePosition */
 message Subscribe_CarriagePosition_Responses {
   sila2.org.silastandard.Real CarriagePosition = 1;  /* The current travel-carriage position [mm] (signed 32-bit device D6010), streamed periodically to subscribers. */
+}
+
+/* Parameters for StationNames */
+message Get_StationNames_Parameters {
+}
+
+/* Responses of StationNames */
+message Get_StationNames_Responses {
+  repeated sila2.org.silastandard.String StationNames = 1;  /* The identifiers of all stations registered in the motion configuration ([stations.<id>]). These are the station names a client may target; the list is fixed for the server lifetime (it comes from the motion config loaded at startup). Ordering is not significant. */
 }

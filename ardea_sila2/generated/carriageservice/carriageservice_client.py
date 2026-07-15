@@ -10,13 +10,14 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
 
-    from typing import Iterable, Optional
+    from typing import Iterable, List, Optional
 
     from carriageservice_types import MoveCarriage_IntermediateResponses, MoveCarriage_Responses
     from sila2.client import (
         ClientMetadataInstance,
         ClientObservableCommandInstanceWithIntermediateResponses,
         ClientObservableProperty,
+        ClientUnobservableProperty,
     )
 
 
@@ -29,6 +30,16 @@ class CarriageServiceClient:
     raises the move-request bit, waits for completion, and always clears the request
     bit afterwards. Speed and acceleration are fixed in the motion configuration.
 
+    """
+
+    StationNames: ClientUnobservableProperty[List[str]]
+    """
+    
+      The identifiers of all stations registered in the motion configuration
+      ([stations.<id>]). These are the station names a client may target; the
+      list is fixed for the server lifetime (it comes from the motion config loaded
+      at startup). Ordering is not significant.
+    
     """
 
     CarriagePosition: ClientObservableProperty[float]

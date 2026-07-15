@@ -68,6 +68,22 @@
       <Identifier>PlcAccessError</Identifier>
     </DefinedExecutionErrors>
   </Property>
+  <Property>
+    <Identifier>StationNames</Identifier>
+    <DisplayName>Station Names</DisplayName>
+    <Description>The identifiers of all stations registered in the motion configuration
+      ([stations.&lt;id&gt;]). These are the station names a client may target; the
+      list is fixed for the server lifetime (it comes from the motion config loaded
+      at startup). Ordering is not significant.</Description>
+    <Observable>No</Observable>
+    <DataType>
+      <List>
+        <DataType>
+          <Basic>String</Basic>
+        </DataType>
+      </List>
+    </DataType>
+  </Property>
   <!-- Command / property execution errors -->
   <DefinedExecutionError>
     <Identifier>RobotNotInMovablePose</Identifier>

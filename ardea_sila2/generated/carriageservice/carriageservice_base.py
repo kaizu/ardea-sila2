@@ -4,7 +4,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from datetime import timedelta
 from queue import Queue
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 
 from sila2.server import FeatureImplementationBase, MetadataDict, ObservableCommandInstanceWithIntermediateResponses
 
@@ -12,11 +12,7 @@ from .carriageservice_types import MoveCarriage_IntermediateResponses, MoveCarri
 
 if TYPE_CHECKING:
 
-    from typing import TypeVar
-
-    from sila2.server import SilaServer
-
-    Server = TypeVar("Server", bound=SilaServer)
+    from ...server import Server
 
 
 class CarriageServiceBase(FeatureImplementationBase, ABC):
@@ -42,6 +38,25 @@ class CarriageServiceBase(FeatureImplementationBase, ABC):
         self._CarriagePosition_producer_queue = Queue()
 
         self.MoveCarriage_default_lifetime_of_execution = None
+
+    @abstractmethod
+    def get_StationNames(self, *, metadata: MetadataDict) -> List[str]:
+        """
+
+        The identifiers of all stations registered in the motion configuration
+        ([stations.<id>]). These are the station names a client may target; the
+        list is fixed for the server lifetime (it comes from the motion config loaded
+        at startup). Ordering is not significant.
+
+
+          :param metadata: The SiLA Client Metadata attached to the call
+          :return:
+        The identifiers of all stations registered in the motion configuration
+        ([stations.<id>]). These are the station names a client may target; the
+        list is fixed for the server lifetime (it comes from the motion config loaded
+        at startup). Ordering is not significant.
+
+        """
 
     def update_CarriagePosition(self, CarriagePosition: float, queue: Optional[Queue[float]] = None) -> None:
         """

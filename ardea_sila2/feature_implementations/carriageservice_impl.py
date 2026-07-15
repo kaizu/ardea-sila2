@@ -78,6 +78,12 @@ class CarriageServiceImpl(CarriageServiceBase):
                 raise PlcConnectionError(str(e))
             raise PlcAccessError(str(e))
 
+    # ---- unobservable property: StationNames ----
+    def get_StationNames(self, *, metadata: MetadataDict) -> list[str]:
+        # The station table comes from the motion config loaded at startup; the set
+        # of names is fixed for the server lifetime. Ordering is not significant.
+        return list(self.parent_server.motion.stations.keys())
+
     def _robot_in_movable_pose(self) -> bool:
         cfg = self.parent_server.config.controller
         try:
