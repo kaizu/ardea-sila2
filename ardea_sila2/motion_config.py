@@ -123,6 +123,10 @@ class MotionConfig:
     hand: HandConfig = field(default_factory=HandConfig)
     stations: dict[str, StationConfig] = field(default_factory=dict)
     return_home: str = "PickUp2"  # common task: retract -> base pose (requires hand open)
+    # Turn tasks used by RobotOrientationService.SetOrientation. Each ends at the
+    # (inverse) retract pose regardless of the (known) starting pose.
+    to_forward: str = "RetractPosition"          # turn to forward: ends at retract_pose
+    to_reverse: str = "InverseRetractPosition"   # turn to reverse: ends at inverse_retract_pose
 
     def at_movable_pose(self, curjnt: list[float]) -> bool:
         """True if ``curjnt`` matches any pose from which the carriage may move.
@@ -259,17 +263,21 @@ def _build_stations(data: Any, carriage: CarriageConfig) -> dict[str, StationCon
     return stations
 
 
-def _build_common(data: Any) -> str:
+def _build_common(data: Any) -> "tuple[str, str, str]":
+    """Return (return_home, to_forward, to_reverse) task names from [common]."""
     data = data or {}
     if not isinstance(data, dict):
         raise MotionConfigError("[common] must be a table.")
-    unknown = set(data) - {"return_home"}
+    defaults = {"return_home": "PickUp2", "to_forward": "RetractPosition",
+                "to_reverse": "InverseRetractPosition"}
+    unknown = set(data) - set(defaults)
     if unknown:
         raise MotionConfigError(f"Unknown key(s) in [common]: {', '.join(sorted(unknown))}")
-    return_home = data.get("return_home", "PickUp2")
-    if not return_home:
-        raise MotionConfigError("[common].return_home must be non-empty.")
-    return str(return_home)
+    values = {k: str(data.get(k, v)) for k, v in defaults.items()}
+    for k in defaults:
+        if not values[k]:
+            raise MotionConfigError(f"[common].{k} must be non-empty.")
+    return values["return_home"], values["to_forward"], values["to_reverse"]
 
 
 def load_motion_config(path: str | Path) -> MotionConfig:
@@ -292,22 +300,24 @@ def load_motion_config(path: str | Path) -> MotionConfig:
     carriage = _build_carriage(data.get("carriage"))
     hand = _build_hand(data.get("hand"))
     stations = _build_stations(data.get("stations"), carriage)
-    return_home = _build_common(data.get("common"))
+    return_home, to_forward, to_reverse = _build_common(data.get("common"))
     cfg = MotionConfig(
         base_pose=base, retract_pose=retract,
         inverse_base_pose=inverse_base, inverse_retract_pose=inverse_retract,
         carriage=carriage, hand=hand, stations=stations, return_home=return_home,
+        to_forward=to_forward, to_reverse=to_reverse,
     )
 
     logger.info(
         "Motion config loaded from %s: base_pose=%s (tol %.4f), retract_pose=%s (tol %.4f), "
         "inverse_base_pose=%s, inverse_retract_pose=%s, "
-        "carriage(range=%d..%d mm), hand(closed=%d, open=%d), return_home=%s, stations=%s",
+        "carriage(range=%d..%d mm), hand(closed=%d, open=%d), return_home=%s, "
+        "to_forward=%s, to_reverse=%s, stations=%s",
         path, base.joint_angles_deg, base.tolerance_deg,
         retract.joint_angles_deg, retract.tolerance_deg,
         inverse_base.joint_angles_deg, inverse_retract.joint_angles_deg,
         carriage.range_min_mm, carriage.range_max_mm,
-        hand.closed_position, hand.open_position, return_home,
+        hand.closed_position, hand.open_position, return_home, to_forward, to_reverse,
         {sid: (s.position_mm, s.script_a, s.script_b, s.direction, s.grip)
          for sid, s in stations.items()},
     )

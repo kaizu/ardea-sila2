@@ -43,6 +43,9 @@ move_timeout_s  = 30
 
 [common]                    # tasks shared by all stations
 return_home = "PickUp2"     # retract -> base pose (requires hand open)
+# RobotOrientationService.SetOrientation turn tasks (end at the (inverse) retract pose):
+to_forward  = "RetractPosition"         # turn to forward -> retract pose
+to_reverse  = "InverseRetractPosition"  # turn to reverse -> inverse retract pose
 
 # direction = arm facing: "forward" (normal poses) | "reverse" (180°-turned inverse poses).
 # grip = plate grip orientation: "short"-edge | "long"-edge. Both default if omitted

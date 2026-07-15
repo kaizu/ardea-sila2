@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+import "SiLAFramework.proto";
+
+package sila2.jp.riken.ardea.robotorientationservice.v1;
+
+/* Turn the DENSO robot arm to face forward or reverse by running a dedicated turn PacScript over b-CAP. "forward" brings the arm to the retract pose; "reverse" brings it to the 180°-turned inverse retract pose. The command may only be called while the arm is at one of the four known poses (base, retract, inverse base, inverse retract), so the turn starts from a safe, known posture. */
+service RobotOrientationService {
+  /* 
+      Turn the arm to the requested orientation. Direction "forward" runs the
+      forward turn task and ends at the retract pose; "reverse" runs the reverse
+      turn task and ends at the inverse retract pose. Requires the arm to start at
+      one of the four known poses. Intermediate responses report the current phase.
+     */
+  rpc SetOrientation (sila2.jp.riken.ardea.robotorientationservice.v1.SetOrientation_Parameters) returns (sila2.org.silastandard.CommandConfirmation) {}
+  /* Monitor the state of SetOrientation */
+  rpc SetOrientation_Info (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.org.silastandard.ExecutionInfo) {}
+  /* Retrieve intermediate responses of SetOrientation */
+  rpc SetOrientation_Intermediate (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.jp.riken.ardea.robotorientationservice.v1.SetOrientation_IntermediateResponses) {}
+  /* Retrieve result of SetOrientation */
+  rpc SetOrientation_Result(sila2.org.silastandard.CommandExecutionUUID) returns (sila2.jp.riken.ardea.robotorientationservice.v1.SetOrientation_Responses) {}
+}
+
+/* Parameters for SetOrientation */
+message SetOrientation_Parameters {
+  sila2.org.silastandard.String Direction = 1;  /* The target orientation: "forward" or "reverse". */
+}
+
+/* Responses of SetOrientation */
+message SetOrientation_Responses {
+  sila2.org.silastandard.String Orientation = 1;  /* The orientation reached: "forward" (retract pose) or "reverse" (inverse retract pose). */
+}
+
+/* Intermediate responses of SetOrientation */
+message SetOrientation_IntermediateResponses {
+  sila2.org.silastandard.String Phase = 1;  /* The current phase of the turn sequence. */
+}

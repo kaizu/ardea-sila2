@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Feature SiLA2Version="1.0" FeatureVersion="1.0" MaturityLevel="Draft" Originator="jp.riken" Category="ardea"
+         xmlns="http://www.sila-standard.org"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
+  <Identifier>RobotOrientationService</Identifier>
+  <DisplayName>Robot Orientation Service</DisplayName>
+  <Description>
+    Turn the DENSO robot arm to face forward or reverse by running a dedicated
+    turn PacScript over b-CAP. "forward" brings the arm to the retract pose;
+    "reverse" brings it to the 180°-turned inverse retract pose. The command may
+    only be called while the arm is at one of the four known poses (base, retract,
+    inverse base, inverse retract), so the turn starts from a safe, known posture.
+  </Description>
+
+  <!-- Commands -->
+  <Command>
+    <Identifier>SetOrientation</Identifier>
+    <DisplayName>Set Orientation</DisplayName>
+    <Description>
+      Turn the arm to the requested orientation. Direction "forward" runs the
+      forward turn task and ends at the retract pose; "reverse" runs the reverse
+      turn task and ends at the inverse retract pose. Requires the arm to start at
+      one of the four known poses. Intermediate responses report the current phase.
+    </Description>
+    <Observable>Yes</Observable>
+    <Parameter>
+      <Identifier>Direction</Identifier>
+      <DisplayName>Direction</DisplayName>
+      <Description>The target orientation: "forward" or "reverse".</Description>
+      <DataType>
+        <Basic>String</Basic>
+      </DataType>
+    </Parameter>
+    <Response>
+      <Identifier>Orientation</Identifier>
+      <DisplayName>Orientation</DisplayName>
+      <Description>The orientation reached: "forward" (retract pose) or "reverse" (inverse retract pose).</Description>
+      <DataType>
+        <Basic>String</Basic>
+      </DataType>
+    </Response>
+    <IntermediateResponse>
+      <Identifier>Phase</Identifier>
+      <DisplayName>Phase</DisplayName>
+      <Description>The current phase of the turn sequence.</Description>
+      <DataType>
+        <Basic>String</Basic>
+      </DataType>
+    </IntermediateResponse>
+    <DefinedExecutionErrors>
+      <Identifier>InvalidDirection</Identifier>
+      <Identifier>RobotNotAtKnownPose</Identifier>
+      <Identifier>PoseNotRestored</Identifier>
+      <Identifier>ControllerConnectionError</Identifier>
+      <Identifier>RobotAccessError</Identifier>
+      <Identifier>TaskExecutionTimeout</Identifier>
+      <Identifier>TaskAccessError</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+
+  <!-- Command execution errors -->
+  <DefinedExecutionError>
+    <Identifier>InvalidDirection</Identifier>
+    <DisplayName>Invalid Direction</DisplayName>
+    <Description>The Direction is not one of "forward" or "reverse".</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>RobotNotAtKnownPose</Identifier>
+    <DisplayName>Robot Not At Known Pose</DisplayName>
+    <Description>The arm is not at any of the four known poses (base, retract, inverse base, inverse retract); the turn is refused.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>PoseNotRestored</Identifier>
+    <DisplayName>Pose Not Restored</DisplayName>
+    <Description>The arm did not end at the expected pose (retract for forward, inverse retract for reverse) after the turn task.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>ControllerConnectionError</Identifier>
+    <DisplayName>Controller Connection Error</DisplayName>
+    <Description>Failed to connect to or communicate with the robot controller over b-CAP.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>RobotAccessError</Identifier>
+    <DisplayName>Robot Access Error</DisplayName>
+    <Description>Failed to acquire the robot or read the current joint angles.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>TaskExecutionTimeout</Identifier>
+    <DisplayName>Task Execution Timeout</DisplayName>
+    <Description>The turn task (PAC program) did not start or finish within the configured timeout.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>TaskAccessError</Identifier>
+    <DisplayName>Task Access Error</DisplayName>
+    <Description>The turn task failed to run or stopped abnormally.</Description>
+  </DefinedExecutionError>
+</Feature>
