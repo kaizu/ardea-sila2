@@ -41,6 +41,12 @@ def main(
         show_default=False,
     ),
     disable_discovery: bool = Option(False, "--disable-discovery", help="Disable SiLA Server Discovery"),
+    skip_grasp_check: bool = Option(
+        False,
+        "--skip-grasp-check",
+        help="Do NOT verify whether a labware was actually grasped during PickLabware "
+        "(and skip the holding precondition of PutLabware). Default: verify.",
+    ),
     insecure: bool = Option(False, "--insecure", help="Start without encryption"),
     private_key_file: Optional[str] = Option(
         None, "-k", "--private-key-file", help="Private key file (e.g. 'server-key.pem')"
@@ -92,7 +98,11 @@ def main(
     bind_port = port if port is not None else config.server.port
 
     # run server
-    server = Server(config, motion, server_uuid=parsed_server_uuid, name=server_name, description=server_description)
+    server = Server(
+        config, motion,
+        verify_grasp=not skip_grasp_check,
+        server_uuid=parsed_server_uuid, name=server_name, description=server_description,
+    )
 
     def start_server():
         if insecure:

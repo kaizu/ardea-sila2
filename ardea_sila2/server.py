@@ -55,6 +55,7 @@ class Server(SilaServer):
         self,
         config: Config,
         motion: MotionConfig,
+        verify_grasp: bool = True,
         server_uuid: Optional[UUID] = None,
         name: Optional[str] = None,
         description: Optional[str] = None,
@@ -65,6 +66,15 @@ class Server(SilaServer):
         # Motion / calibration values (named poses, etc.) read by Ardea-specific
         # feature implementations via ``self.parent_server.motion``.
         self.motion = motion
+        # Whether LabwareService verifies the grasp: PickLabware checks the grip bit
+        # (empty -> GraspFailed), PutLabware checks the holding precondition. When
+        # False (server started with --skip-grasp-check) both checks are skipped.
+        self.verify_grasp = verify_grasp
+        if not verify_grasp:
+            logger.warning(
+                "Grasp verification DISABLED (--skip-grasp-check): PickLabware will not "
+                "detect an empty grip and PutLabware will not require a held labware."
+            )
 
         # OperationCoordinator: a single process-wide lock making robot and carriage
         # motion mutually exclusive. CarriageService.MoveCarriage and (later)
