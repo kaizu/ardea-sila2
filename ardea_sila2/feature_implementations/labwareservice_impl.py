@@ -5,10 +5,14 @@ Both commands resolve a station from the current carriage position (motion
 around a hand action. The poses used depend on the station's ``direction``:
 forward uses the base/retract poses, reverse uses the 180°-turned inverse
 base/retract poses (motion ``poses_for`` / ``return_home_for``):
+Each operation uses its own task pair from the station (Pick: pick_script_a/_b,
+Put: put_script_a/_b), so placing and taking can follow different trajectories:
   PickLabware (robot must start at the direction's base pose):
-    approach (script_a) -> close hand (chuck) -> retract (script_b) -> confirm retract.
+    approach (pick_script_a) -> close hand (chuck) -> retract (pick_script_b)
+    -> confirm retract.
   PutLabware (robot must start at the direction's retract pose):
-    approach (script_a) -> open hand (unchuck) -> retract (script_b) -> confirm retract
+    approach (put_script_a) -> open hand (unchuck) -> retract (put_script_b)
+    -> confirm retract
     -> return_home (direction's common task, hand must be open) -> confirm base.
 
 Reuses bcap task/pose helpers and the kvcomplus atomic primitives; holds the
@@ -234,8 +238,8 @@ class LabwareServiceImpl(LabwareServiceBase):
             instance.begin_execution()
             phase(f"start (station {station_id}, {station.direction})")
 
-            phase(f"approach: RunTask({station.script_a})")
-            self._run_task(station.script_a)
+            phase(f"approach: RunTask({station.pick_script_a})")
+            self._run_task(station.pick_script_a)
 
             phase("chuck: closing hand")
             # Close target depends on the station's grip orientation (long -> not fully closed).
@@ -248,8 +252,8 @@ class LabwareServiceImpl(LabwareServiceBase):
                     "grip bit D6002.6=1)."
                 )
 
-            phase(f"retract: RunTask({station.script_b})")
-            self._run_task(station.script_b)
+            phase(f"retract: RunTask({station.pick_script_b})")
+            self._run_task(station.pick_script_b)
 
             # Confirm the robot returned to the direction's retract pose.
             phase(f"verify {retract_name} pose")
@@ -310,14 +314,14 @@ class LabwareServiceImpl(LabwareServiceBase):
             instance.begin_execution()
             phase(f"start (station {station_id}, {station.direction})")
 
-            phase(f"approach: RunTask({station.script_a})")
-            self._run_task(station.script_a)
+            phase(f"approach: RunTask({station.put_script_a})")
+            self._run_task(station.put_script_a)
 
             phase("unchuck: opening hand")
             self._hand_move(motion.hand.open_position)
 
-            phase(f"retract: RunTask({station.script_b})")
-            self._run_task(station.script_b)
+            phase(f"retract: RunTask({station.put_script_b})")
+            self._run_task(station.put_script_b)
 
             phase(f"verify {retract_name} pose")
             if not retract_like.matches(self._joint_angles()):

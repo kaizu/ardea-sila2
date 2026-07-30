@@ -51,19 +51,28 @@ move_timeout_s  = 30
 return_home = "BasePosition"  # retract -> base pose (forward stations; requires hand open)
 return_home_reverse = "InverseBasePosition"  # inverse retract -> inverse base (reverse stations)
 
+# Pick and Put each take their OWN approach/retract task pair, so a station can place a
+# plate along a different trajectory than it takes one. All four keys are REQUIRED; name
+# the same tasks in both pairs when the two operations share a trajectory (as below).
+#   pick_script_a / pick_script_b = approach / retract used by PickLabware
+#   put_script_a  / put_script_b  = approach / retract used by PutLabware
 # direction = arm facing: "forward" (normal poses) | "reverse" (180°-turned inverse poses).
-# grip = plate grip orientation: "short"-edge | "long"-edge. Both default if omitted
-# (forward/short) and are stored only for now (not yet wired into Pick/Put).
-[stations.Base1]            # labware station "Base1" (add more [stations.<id>] as needed)
-position_mm = 0             # carriage position [mm] for this station (must be unique)
-script_a    = "PickUp0"     # approach task
-script_b    = "PickUp1"     # retract task
-direction   = "forward"     # forward | reverse
-grip        = "short"       # short | long
+# grip = plate grip orientation: "short"-edge | "long"-edge; selects Pick's chuck target
+# (short -> closed_position, long -> closed_position_long). Both default to forward/short.
+[stations.Base1]              # labware station "Base1" (add more [stations.<id>] as needed)
+position_mm   = 0             # carriage position [mm] for this station (must be unique)
+pick_script_a = "PickUp0"     # Pick: approach task
+pick_script_b = "PickUp1"     # Pick: retract task
+put_script_a  = "PickUp0"     # Put: approach task
+put_script_b  = "PickUp1"     # Put: retract task
+direction     = "forward"     # forward | reverse
+grip          = "short"       # short | long
 
-[stations.Base2]            # labware station "Base2"
-position_mm = 2600          # carriage position [mm] (must be unique, within travel range)
-script_a    = "PickUp3"     # approach task
-script_b    = "PickUp4"     # retract task
-direction   = "forward"     # forward | reverse
-grip        = "short"       # short | long
+[stations.Base2]              # labware station "Base2"
+position_mm   = 2600          # carriage position [mm] (must be unique, within travel range)
+pick_script_a = "PickUp3"     # Pick: approach task
+pick_script_b = "PickUp4"     # Pick: retract task
+put_script_a  = "PickUp3"     # Put: approach task
+put_script_b  = "PickUp4"     # Put: retract task
+direction     = "forward"     # forward | reverse
+grip          = "short"       # short | long

@@ -105,25 +105,32 @@ class HandConfig:
 # Allowed values for the per-station orientation settings.
 STATION_DIRECTIONS = ("forward", "reverse")  # arm facing at the station
 STATION_GRIPS = ("short", "long")            # plate grip: short-edge / long-edge
+# Per-station task pairs, required in every [stations.<id>]. Pick and Put are kept
+# separate so a station can place along a different trajectory than it takes.
+_STATION_SCRIPT_KEYS = ("pick_script_a", "pick_script_b", "put_script_a", "put_script_b")
 
 
 @dataclass
 class StationConfig:
-    """A labware station: carriage position [mm] + its approach/retract task pair.
+    """A labware station: carriage position [mm] + its approach/retract task pairs.
 
-    Roles are common to all stations: script_a = approach, script_b = retract. The
-    same pair serves both Pick (hand closes) and Put (hand opens).
+    Pick and Put take **separate** task pairs (``pick_script_a``/``pick_script_b`` and
+    ``put_script_a``/``put_script_b``; ``_a`` = approach, ``_b`` = retract). They may
+    name the same tasks -- and every station currently does -- but keeping them apart
+    lets a station place a plate along a different trajectory than it takes one,
+    configured in the TOML without touching code.
 
-    ``direction`` records which way the arm faces to work this station: ``forward``
-    uses the normal poses (base/retract), ``reverse`` the 180°-turned inverse poses
-    (inverse_base/inverse_retract). ``grip`` records the plate grip orientation
-    (``short``-edge / ``long``-edge). Both are stored for now and not yet wired into
-    Pick/Put behaviour (all current stations are forward + short).
+    ``direction`` is which way the arm faces to work this station: ``forward`` uses the
+    normal poses (base/retract), ``reverse`` the 180°-turned inverse poses
+    (inverse_base/inverse_retract). ``grip`` is the plate grip orientation
+    (``short``-edge / ``long``-edge) and selects Pick's chuck target.
     """
 
     position_mm: int
-    script_a: str              # approach task (RunTask)
-    script_b: str              # retract task (RunTask)
+    pick_script_a: str          # Pick: approach task (RunTask)
+    pick_script_b: str          # Pick: retract task (RunTask)
+    put_script_a: str           # Put: approach task (RunTask)
+    put_script_b: str           # Put: retract task (RunTask)
     direction: str = "forward"  # "forward" | "reverse" (see STATION_DIRECTIONS)
     grip: str = "short"         # "short" | "long" (see STATION_GRIPS)
 
@@ -276,10 +283,19 @@ def _build_stations(data: Any, carriage: CarriageConfig) -> dict[str, StationCon
     for sid, sdata in data.items():
         if not isinstance(sdata, dict):
             raise MotionConfigError(f"[stations.{sid}] must be a table.")
+        # Pick/Put used to share one script_a/script_b pair. Name the split explicitly
+        # rather than letting it fall through as a generic "unknown key".
+        legacy = {"script_a", "script_b"} & set(sdata)
+        if legacy:
+            raise MotionConfigError(
+                f"[stations.{sid}] uses the old shared key(s) {', '.join(sorted(legacy))}; "
+                "Pick and Put now take separate pairs -- use pick_script_a/pick_script_b "
+                "and put_script_a/put_script_b (they may name the same tasks)."
+            )
         unknown = set(sdata) - known
         if unknown:
             raise MotionConfigError(f"Unknown key(s) in [stations.{sid}]: {', '.join(sorted(unknown))}")
-        for key in ("position_mm", "script_a", "script_b"):
+        for key in ("position_mm", *_STATION_SCRIPT_KEYS):
             if key not in sdata:
                 raise MotionConfigError(f"Missing required [stations.{sid}].{key}.")
         pos = sdata["position_mm"]
@@ -288,8 +304,9 @@ def _build_stations(data: Any, carriage: CarriageConfig) -> dict[str, StationCon
                 f"[stations.{sid}].position_mm must be an int within "
                 f"{carriage.range_min_mm}..{carriage.range_max_mm}."
             )
-        if not sdata["script_a"] or not sdata["script_b"]:
-            raise MotionConfigError(f"[stations.{sid}].script_a/script_b must be non-empty.")
+        empty = [k for k in _STATION_SCRIPT_KEYS if not sdata[k]]
+        if empty:
+            raise MotionConfigError(f"[stations.{sid}].{'/'.join(empty)} must be non-empty.")
         direction = sdata.get("direction", "forward")
         if direction not in STATION_DIRECTIONS:
             raise MotionConfigError(
@@ -307,7 +324,11 @@ def _build_stations(data: Any, carriage: CarriageConfig) -> dict[str, StationCon
             )
         positions[pos] = sid
         stations[sid] = StationConfig(
-            position_mm=pos, script_a=str(sdata["script_a"]), script_b=str(sdata["script_b"]),
+            position_mm=pos,
+            pick_script_a=str(sdata["pick_script_a"]),
+            pick_script_b=str(sdata["pick_script_b"]),
+            put_script_a=str(sdata["put_script_a"]),
+            put_script_b=str(sdata["put_script_b"]),
             direction=direction, grip=grip,
         )
     return stations
@@ -369,7 +390,8 @@ def load_motion_config(path: str | Path) -> MotionConfig:
         carriage.range_min_mm, carriage.range_max_mm,
         hand.closed_position, hand.open_position,
         return_home, return_home_reverse,
-        {sid: (s.position_mm, s.script_a, s.script_b, s.direction, s.grip)
+        {sid: (s.position_mm, (s.pick_script_a, s.pick_script_b),
+               (s.put_script_a, s.put_script_b), s.direction, s.grip)
          for sid, s in stations.items()},
     )
     return cfg
