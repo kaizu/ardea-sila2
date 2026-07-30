@@ -4,13 +4,14 @@
 #
 # Kept separate from config.toml because wrong values risk a physical collision.
 # Poses are compared on the first 6 joint axes (J1..J6) within tolerance_deg.
-# The values below were measured on our robot (192.168.0.11) on 2026-07-08;
-# RE-MEASURE them for your own machine.
+# ⚠ Every value here was measured on OUR machine (robot 192.168.0.11, 2026-07-08 and
+#   2026-07-15) and the task names are the ones on OUR controller. RE-MEASURE the poses
+#   and station positions, and use your own task names, before running this anywhere else.
 
 # task = PacScript that drives the arm to this pose (used by SetOrientation).
 [base_pose]      # home/origin pose (also the initial pose)
 joint_angles_deg = [89.994, 25.005, -115.007, 180.027, 89.998, -90.009]
-tolerance_deg    = 0.1    # loosened 0.01 -> 0.05 -> 0.1: pose J3 varies with how the pose is reached
+tolerance_deg    = 0.1
 task             = "BasePosition"
 
 [retract_pose]   # retract pose. Carriage move allowed at any of the 4 poses below.
@@ -19,14 +20,15 @@ tolerance_deg    = 0.1
 task             = "RetractPosition"
 
 # The two "inverse" poses are the base/retract poses turned 180° (J1 flipped ~-180°;
-# the arm faces the opposite direction). Carriage move is also allowed at these. Measure
-# each on the real arm (jog there, read CurJnt) and paste the values here.
-[inverse_retract_pose]   # retract pose turned 180°
+# the arm faces the opposite direction). Carriage move is also allowed at these.
+[inverse_retract_pose]   # retract pose turned 180°. MEASURED on the real arm 2026-07-15.
 joint_angles_deg = [-89.993, 25.002, -115.001, 120.002, 89.999, -89.999]
 tolerance_deg    = 0.1
 task             = "InverseRetractPosition"
 
-[inverse_base_pose]      # base pose turned 180°
+[inverse_base_pose]      # base pose turned 180°. MEASURED on the real arm 2026-07-15.
+# (Note: J3 came out ~0.06° off the base-derived value, i.e. beyond tol — measuring
+#  the real pose mattered rather than deriving it from base with J1 -180.)
 joint_angles_deg = [-90.019, 25.006, -115.070, 180.018, 89.998, -90.013]
 tolerance_deg    = 0.1
 task             = "InverseBasePosition"
@@ -51,28 +53,62 @@ move_timeout_s  = 30
 return_home = "BasePosition"  # retract -> base pose (forward stations; requires hand open)
 return_home_reverse = "InverseBasePosition"  # inverse retract -> inverse base (reverse stations)
 
-# Pick and Put each take their OWN approach/retract task pair, so a station can place a
-# plate along a different trajectory than it takes one. All four keys are REQUIRED; name
-# the same tasks in both pairs when the two operations share a trajectory (as below).
-#   pick_script_a / pick_script_b = approach / retract used by PickLabware
-#   put_script_a  / put_script_b  = approach / retract used by PutLabware
+# All stations follow one naming rule: xxxApproachPick<N> / xxxDepartPick<N> for Base<N>.
+# ★Put deliberately names the SAME (Pick) tasks as Pick: the two motions are identical for
+#  now. The dedicated xxxApproachPut<N>/xxxDepartPut<N> tasks exist on the controller and
+#  can be swapped into put_script_a/put_script_b once Put needs its own trajectory.
+# ⚠ Base1 is COMMENTED OUT: xxxApproachPick1/xxxDepartPick1 are not implemented on the
+#  controller yet (checked 2026-07-30: only ...2 to ...5 exist). Uncomment once they are
+#  added. While it is commented out, 0 mm is NOT a station -- Pick/Put there raise
+#  NoStationAtPosition, and StationNames omits Base1.
 # direction = arm facing: "forward" (normal poses) | "reverse" (180°-turned inverse poses).
-# grip = plate grip orientation: "short"-edge | "long"-edge; selects Pick's chuck target
-# (short -> closed_position, long -> closed_position_long). Both default to forward/short.
-[stations.Base1]              # labware station "Base1" (add more [stations.<id>] as needed)
-position_mm   = 0             # carriage position [mm] for this station (must be unique)
-pick_script_a = "PickUp0"     # Pick: approach task
-pick_script_b = "PickUp1"     # Pick: retract task
-put_script_a  = "PickUp0"     # Put: approach task
-put_script_b  = "PickUp1"     # Put: retract task
-direction     = "forward"     # forward | reverse
-grip          = "short"       # short | long
+# grip = plate grip orientation: "short"-edge | "long"-edge. Selects Pick's chuck target
+# (short -> closed_position, long -> closed_position_long).
+# [stations.Base1]                       # labware station "Base1" -- tasks not on controller
+# position_mm   = 0                      # carriage position [mm] for this station
+# pick_script_a = "xxxApproachPick1"     # Pick: approach task
+# pick_script_b = "xxxDepartPick1"       # Pick: retract (depart) task
+# put_script_a  = "xxxApproachPick1"     # Put: approach task (same as Pick for now)
+# put_script_b  = "xxxDepartPick1"       # Put: retract task (same as Pick for now)
+# direction     = "forward"              # forward | reverse
+# grip          = "long"                 # short | long
 
-[stations.Base2]              # labware station "Base2"
-position_mm   = 2600          # carriage position [mm] (must be unique, within travel range)
-pick_script_a = "PickUp3"     # Pick: approach task
-pick_script_b = "PickUp4"     # Pick: retract task
-put_script_a  = "PickUp3"     # Put: approach task
-put_script_b  = "PickUp4"     # Put: retract task
-direction     = "forward"     # forward | reverse
-grip          = "short"       # short | long
+[stations.Base2]                       # labware station "Base2"
+position_mm   = 2600                   # carriage position [mm] for this station
+pick_script_a = "xxxApproachPick2"     # Pick: approach task
+pick_script_b = "xxxDepartPick2"       # Pick: retract (depart) task
+put_script_a  = "xxxApproachPick2"     # Put: approach task (same as Pick for now)
+put_script_b  = "xxxDepartPick2"       # Put: retract task (same as Pick for now)
+direction     = "forward"              # forward | reverse
+grip          = "long"                 # short | long  (base set for long-edge grip 2026-07-24)
+
+# Base3..Base5: reverse-facing, long-edge grip.
+# Positions VERIFIED on the real machine 2026-07-30: Pick and Put both succeed at all
+# three, and transports between them work. Note this proves the value is workable, not
+# that it is the intended design value — a plate can still land slightly off and pass.
+[stations.Base3]                       # labware station "Base3"
+position_mm   = 2400                   # verified 2026-07-30
+pick_script_a = "xxxApproachPick3"     # Pick: approach task
+pick_script_b = "xxxDepartPick3"       # Pick: retract (depart) task
+put_script_a  = "xxxApproachPick3"     # Put: approach task (same as Pick for now)
+put_script_b  = "xxxDepartPick3"       # Put: retract task (same as Pick for now)
+direction     = "reverse"              # forward | reverse
+grip          = "long"                 # short | long
+
+[stations.Base4]                       # labware station "Base4"
+position_mm   = 1600                   # verified 2026-07-30
+pick_script_a = "xxxApproachPick4"     # Pick: approach task
+pick_script_b = "xxxDepartPick4"       # Pick: retract (depart) task
+put_script_a  = "xxxApproachPick4"     # Put: approach task (same as Pick for now)
+put_script_b  = "xxxDepartPick4"       # Put: retract task (same as Pick for now)
+direction     = "reverse"              # forward | reverse
+grip          = "long"                 # short | long
+
+[stations.Base5]                       # labware station "Base5"
+position_mm   = 2000                   # verified 2026-07-30
+pick_script_a = "xxxApproachPick5"     # Pick: approach task
+pick_script_b = "xxxDepartPick5"       # Pick: retract (depart) task
+put_script_a  = "xxxApproachPick5"     # Put: approach task (same as Pick for now)
+put_script_b  = "xxxDepartPick5"       # Put: retract task (same as Pick for now)
+direction     = "reverse"              # forward | reverse
+grip          = "long"                 # short | long
