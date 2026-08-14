@@ -55,7 +55,7 @@ message PutLabware_Parameters {
 
 /* Responses of PutLabware */
 message PutLabware_Responses {
-  sila2.org.silastandard.Boolean AtBasePose = 1;  /* True if the robot ended at the base pose after the put and return-home. */
+  sila2.org.silastandard.Boolean AtRetractPose = 1;  /* True if the robot ended at the retract pose after the put. */
 }
 
 /* Intermediate responses of PutLabware */

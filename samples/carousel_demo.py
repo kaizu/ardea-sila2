@@ -7,10 +7,12 @@ returns it to where it started:
 
 Each leg is PickLabware -> MoveCarriage -> (SetOrientation) -> PutLabware. The arm only
 turns when the next station faces the other way, and it does so while holding the plate,
-which is supported. Stations, their positions and their facing all come from the
-server's motion config, so nothing about the route is hard-coded here beyond the order of
-station names -- a station commented out in motion.toml is reported as missing rather
-than guessed at.
+which is supported. PutLabware leaves the arm at the retract pose (it does not return
+home), which is exactly where the next leg's PickLabware starts, so the tour stays in the
+retract family throughout and ends there. Stations, their positions and their facing all
+come from the server's motion config, so nothing about the route is hard-coded here beyond
+the order of station names -- a station commented out in motion.toml is reported as missing
+rather than guessed at.
 
 PHYSICAL MOTION. The demo asks for confirmation before it moves anything; pass --yes to
 skip that, or --dry-run to print the plan and the current state without moving.
@@ -214,15 +216,9 @@ def normalise(m: Machine, first: Station, hand_open_at: int) -> None:
         print(f"  turning to face {first.facing}")
         print(f"    -> {m.set_orientation(first.facing)}")
 
-    # SetOrientation preserves the pose family, so a retract-family pose stays retract and
-    # PickLabware (which starts from the base-family pose) would refuse.
-    if m.pose() not in ("base", "inverse base"):
-        raise DemoError(
-            f"the arm is at the {m.pose()} pose, but PickLabware starts from the base pose "
-            "(forward station) or the inverse base pose (reverse station). SetOrientation only "
-            "flips the facing, it does not change retract into base.\n"
-            "  Run BasePosition or InverseBasePosition, then re-run the demo."
-        )
+    # Either pose family will do: PickLabware starts from the base or the retract pose of
+    # the station's facing, and moves itself from base to retract when it has to. Since
+    # SetOrientation preserves the family, the facing set above is all this has to get right.
 
 
 def run_leg(m: Machine, n: int, here: Station, there: Station) -> None:

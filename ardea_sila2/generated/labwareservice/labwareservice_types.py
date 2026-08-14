@@ -14,9 +14,9 @@ class PickLabware_Responses(NamedTuple):
 
 class PutLabware_Responses(NamedTuple):
 
-    AtBasePose: bool
+    AtRetractPose: bool
     """
-    True if the robot ended at the base pose after the put and return-home.
+    True if the robot ended at the retract pose after the put.
     """
 
 

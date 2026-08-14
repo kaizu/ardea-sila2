@@ -50,6 +50,8 @@ grip_force      = 1         # D5070 fixed
 move_timeout_s  = 30
 
 [common]                    # tasks shared by all stations
+# NOT used by Pick/Put any more: both end at the retract pose so a Pick after a Put does
+# not have to undo a return-home. Kept for the explicit park/return-home command to come.
 return_home = "BasePosition"  # retract -> base pose (forward stations; requires hand open)
 return_home_reverse = "InverseBasePosition"  # inverse retract -> inverse base (reverse stations)
 

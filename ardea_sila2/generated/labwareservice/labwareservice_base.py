@@ -55,10 +55,11 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
     ) -> PickLabware_Responses:
         """
 
-        Pick a labware: verify the robot is at the base pose, run the pick-approach
-        task, close the hand, run the pick-retract task (which returns the robot to
-        the retract pose), and confirm the retract pose. Intermediate responses report
-        the current phase.
+        Pick a labware: verify the robot is at the base or the retract pose and, from
+        the base pose, move it to the retract pose (which is where the approach task
+        starts); then run the pick-approach task, close the hand, run the pick-retract
+        task (which returns the robot to the retract pose), and confirm the retract
+        pose. Intermediate responses report the current phase.
 
 
 
@@ -81,11 +82,11 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
     ) -> PutLabware_Responses:
         """
 
-        Place a labware: verify the robot is at the retract pose (not the base pose)
-        and the carriage is at the origin, run the approach task, open the hand, run
-        the retract task (robot to the retract pose), confirm the retract pose, then —
-        with the hand open — run the common return-home task to bring the robot back
-        to the base pose and confirm it. Intermediate responses report the current phase.
+        Place a labware: verify the robot is at the retract pose (not the base pose),
+        run the approach task, open the hand, run the retract task (robot to the retract
+        pose) and confirm the retract pose. The robot is left there — it is not returned
+        to the base pose, so a PickLabware at this station can start straight away.
+        Intermediate responses report the current phase.
 
 
 
@@ -94,7 +95,7 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
 
           :return:
 
-              - AtBasePose: True if the robot ended at the base pose after the put and return-home.
+              - AtRetractPose: True if the robot ended at the retract pose after the put.
 
 
         """

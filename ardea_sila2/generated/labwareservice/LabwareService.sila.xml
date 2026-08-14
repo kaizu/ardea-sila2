@@ -4,17 +4,20 @@
   <Description>Ardea labware handling: pick and put a labware by orchestrating the DENSO robot
     (b-CAP tasks) and the KEYENCE hand (KV COM+). Each command runs the approach
     task, actuates the hand (close for pick, open for put), runs the retract task,
-    and confirms the robot returned to the retract pose. PickLabware requires the
-    robot to start at the base pose; PutLabware requires the retract pose. Neither
-    command moves the carriage.</Description>
+    and confirms the robot returned to the retract pose. Both commands end at the
+    retract pose: PutLabware does not return the robot to the base pose, so a Pick
+    following a Put does not have to undo that move. PickLabware may start at either
+    the base or the retract pose (from the base pose it moves to the retract pose
+    first); PutLabware requires the retract pose. Neither command moves the carriage.</Description>
   <!-- Commands -->
   <Command>
     <Identifier>PickLabware</Identifier>
     <DisplayName>Pick Labware</DisplayName>
-    <Description>Pick a labware: verify the robot is at the base pose, run the pick-approach
-      task, close the hand, run the pick-retract task (which returns the robot to
-      the retract pose), and confirm the retract pose. Intermediate responses report
-      the current phase.</Description>
+    <Description>Pick a labware: verify the robot is at the base or the retract pose and, from
+      the base pose, move it to the retract pose (which is where the approach task
+      starts); then run the pick-approach task, close the hand, run the pick-retract
+      task (which returns the robot to the retract pose), and confirm the retract
+      pose. Intermediate responses report the current phase.</Description>
     <Observable>Yes</Observable>
     <Response>
       <Identifier>AtRetractPose</Identifier>
@@ -50,16 +53,16 @@
   <Command>
     <Identifier>PutLabware</Identifier>
     <DisplayName>Put Labware</DisplayName>
-    <Description>Place a labware: verify the robot is at the retract pose (not the base pose)
-      and the carriage is at the origin, run the approach task, open the hand, run
-      the retract task (robot to the retract pose), confirm the retract pose, then &#8212;
-      with the hand open &#8212; run the common return-home task to bring the robot back
-      to the base pose and confirm it. Intermediate responses report the current phase.</Description>
+    <Description>Place a labware: verify the robot is at the retract pose (not the base pose),
+      run the approach task, open the hand, run the retract task (robot to the retract
+      pose) and confirm the retract pose. The robot is left there &#8212; it is not returned
+      to the base pose, so a PickLabware at this station can start straight away.
+      Intermediate responses report the current phase.</Description>
     <Observable>Yes</Observable>
     <Response>
-      <Identifier>AtBasePose</Identifier>
-      <DisplayName>At Base Pose</DisplayName>
-      <Description>True if the robot ended at the base pose after the put and return-home.</Description>
+      <Identifier>AtRetractPose</Identifier>
+      <DisplayName>At Retract Pose</DisplayName>
+      <Description>True if the robot ended at the retract pose after the put.</Description>
       <DataType>
         <Basic>Boolean</Basic>
       </DataType>
@@ -75,7 +78,6 @@
     <DefinedExecutionErrors>
       <Identifier>RobotNotAtRetractPose</Identifier>
       <Identifier>NoStationAtPosition</Identifier>
-      <Identifier>HandNotOpen</Identifier>
       <Identifier>PoseNotRestored</Identifier>
       <Identifier>ControllerConnectionError</Identifier>
       <Identifier>RobotAccessError</Identifier>
@@ -96,7 +98,7 @@
   <DefinedExecutionError>
     <Identifier>RobotNotAtBasePose</Identifier>
     <DisplayName>Robot Not At Base Pose</DisplayName>
-    <Description>The robot is not at the base pose, which PickLabware requires (the retract pose is not allowed).</Description>
+    <Description>The robot is at neither of the two poses PickLabware can start from (the station direction's base pose or retract pose). The identifier is kept for compatibility; it no longer means "the retract pose is not allowed".</Description>
   </DefinedExecutionError>
   <DefinedExecutionError>
     <Identifier>NoStationAtPosition</Identifier>
@@ -111,7 +113,7 @@
   <DefinedExecutionError>
     <Identifier>PoseNotRestored</Identifier>
     <DisplayName>Pose Not Restored</DisplayName>
-    <Description>The robot did not return to the retract pose after the pick-retract task.</Description>
+    <Description>The robot did not reach the retract pose: after a pick-retract or put-retract task, or before the pick approach when it had to be moved there from the base pose.</Description>
   </DefinedExecutionError>
   <DefinedExecutionError>
     <Identifier>ControllerConnectionError</Identifier>

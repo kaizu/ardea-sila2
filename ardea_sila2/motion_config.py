@@ -19,7 +19,9 @@ retract, or either inverse pose); see ``MotionConfig.at_movable_pose``.
 
 Other sections: ``[carriage]`` (travel params), ``[hand]`` (gripper params),
 ``[stations.<id>]`` (labware stations: position + approach/retract task pair), and
-``[common].return_home`` (the shared retract->base task).
+``[common].return_home`` (the shared retract->base task). Since PutLabware stops at the
+retract pose, ``return_home``/``return_home_reverse`` are no longer used by Pick/Put; they
+are kept for the explicit park/return-home command still to be written.
 """
 
 from __future__ import annotations
@@ -144,7 +146,10 @@ class MotionConfig:
     carriage: CarriageConfig = field(default_factory=CarriageConfig)
     hand: HandConfig = field(default_factory=HandConfig)
     stations: dict[str, StationConfig] = field(default_factory=dict)
-    return_home: str = "BasePosition"  # common task: retract -> base pose (requires hand open)
+    # Common task: retract -> base pose (requires hand open). Not used by Pick/Put any
+    # more -- PutLabware now stops at the retract pose -- but kept for the explicit
+    # park/return-home command still to be written.
+    return_home: str = "BasePosition"
     # reverse counterpart: inverse retract -> inverse base pose (requires hand open)
     return_home_reverse: str = "InverseBasePosition"
 
@@ -175,7 +180,11 @@ class MotionConfig:
         return self.base_pose, self.retract_pose
 
     def return_home_for(self, direction: str) -> str:
-        """Return the return-home task for a station ``direction`` (retract-like -> base-like)."""
+        """Return the return-home task for a station ``direction`` (retract-like -> base-like).
+
+        No caller left in Pick/Put (both end at the retract pose); kept for the explicit
+        park/return-home command still to be written.
+        """
         return self.return_home_reverse if direction == "reverse" else self.return_home
 
     def at_movable_pose(self, curjnt: list[float]) -> bool:
