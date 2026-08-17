@@ -1,11 +1,13 @@
 <Feature xmlns="http://www.sila-standard.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" Category="ardea" FeatureVersion="1.0" MaturityLevel="Draft" Originator="jp.riken" SiLA2Version="1.0" xsi:schemaLocation="http://www.sila-standard.org https://gitlab.com/SiLA2/sila_base/raw/master/schema/FeatureDefinition.xsd">
   <Identifier>RobotOrientationService</Identifier>
   <DisplayName>Robot Orientation Service</DisplayName>
-  <Description>Turn the DENSO robot arm to face forward or reverse by running a dedicated
-    turn PacScript over b-CAP. "forward" brings the arm to the retract pose;
-    "reverse" brings it to the 180&#176;-turned inverse retract pose. The command may
-    only be called while the arm is at one of the four known poses (base, retract,
-    inverse base, inverse retract), so the turn starts from a safe, known posture.</Description>
+  <Description>Move the DENSO robot arm between its four known poses by running dedicated
+    PacScripts over b-CAP. SetOrientation turns the arm to face forward or reverse,
+    keeping the pose family: "forward" brings a retract-family pose to the retract
+    pose, "reverse" to the 180&#176;-turned inverse retract pose. ReturnHome parks the
+    arm at the base pose from any of the four. Both commands may only be called
+    while the arm is at one of the four known poses (base, retract, inverse base,
+    inverse retract), so the motion starts from a safe, known posture.</Description>
   <!-- Commands -->
   <Command>
     <Identifier>SetOrientation</Identifier>
@@ -49,6 +51,45 @@
       <Identifier>TaskAccessError</Identifier>
     </DefinedExecutionErrors>
   </Command>
+  <Command>
+    <Identifier>ReturnHome</Identifier>
+    <DisplayName>Return Home</DisplayName>
+    <Description>Park the arm at the base pose from any of the four known poses. The base pose
+      needs no motion; the retract pose and the inverse base pose each take one task
+      (the arm turns to face forward on the way from the inverse base pose); the
+      inverse retract pose is reached in two steps, via the retract pose, so that
+      every leg is a transition already exercised on the machine. Requires the hand
+      to be fully open, since the home task assumes it. Intermediate responses report
+      the current phase.</Description>
+    <Observable>Yes</Observable>
+    <Response>
+      <Identifier>AtBasePose</Identifier>
+      <DisplayName>At Base Pose</DisplayName>
+      <Description>True if the arm ended at the base pose.</Description>
+      <DataType>
+        <Basic>Boolean</Basic>
+      </DataType>
+    </Response>
+    <IntermediateResponse>
+      <Identifier>Phase</Identifier>
+      <DisplayName>Phase</DisplayName>
+      <Description>The current phase of the return-home sequence.</Description>
+      <DataType>
+        <Basic>String</Basic>
+      </DataType>
+    </IntermediateResponse>
+    <DefinedExecutionErrors>
+      <Identifier>RobotNotAtKnownPose</Identifier>
+      <Identifier>HandNotOpen</Identifier>
+      <Identifier>PoseNotRestored</Identifier>
+      <Identifier>ControllerConnectionError</Identifier>
+      <Identifier>RobotAccessError</Identifier>
+      <Identifier>TaskExecutionTimeout</Identifier>
+      <Identifier>TaskAccessError</Identifier>
+      <Identifier>PlcConnectionError</Identifier>
+      <Identifier>PlcAccessError</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
   <!-- Command execution errors -->
   <DefinedExecutionError>
     <Identifier>InvalidDirection</Identifier>
@@ -58,12 +99,27 @@
   <DefinedExecutionError>
     <Identifier>RobotNotAtKnownPose</Identifier>
     <DisplayName>Robot Not At Known Pose</DisplayName>
-    <Description>The arm is not at any of the four known poses (base, retract, inverse base, inverse retract); the turn is refused.</Description>
+    <Description>The arm is not at any of the four known poses (base, retract, inverse base, inverse retract); the motion is refused.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>HandNotOpen</Identifier>
+    <DisplayName>Hand Not Open</DisplayName>
+    <Description>The hand is not fully open; ReturnHome requires it, because the home task assumes an open hand and parking with a labware held is not intended.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>PlcConnectionError</Identifier>
+    <DisplayName>PLC Connection Error</DisplayName>
+    <Description>Failed to connect to or communicate with the PLC over KV COM+ while reading the hand position.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>PlcAccessError</Identifier>
+    <DisplayName>PLC Access Error</DisplayName>
+    <Description>Failed to read the hand position from the PLC.</Description>
   </DefinedExecutionError>
   <DefinedExecutionError>
     <Identifier>PoseNotRestored</Identifier>
     <DisplayName>Pose Not Restored</DisplayName>
-    <Description>The arm did not end at the expected pose (retract for forward, inverse retract for reverse) after the turn task.</Description>
+    <Description>The arm did not end at the expected pose after a task: the turn target for SetOrientation, or an intermediate or the base pose for ReturnHome.</Description>
   </DefinedExecutionError>
   <DefinedExecutionError>
     <Identifier>ControllerConnectionError</Identifier>

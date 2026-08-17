@@ -18,16 +18,37 @@ class InvalidDirection(DefinedExecutionError):
 class RobotNotAtKnownPose(DefinedExecutionError):
     def __init__(self, message: Optional[str] = None):
         if message is None:
-            message = "The arm is not at any of the four known poses (base, retract, inverse base, inverse retract); the turn is refused."
+            message = "The arm is not at any of the four known poses (base, retract, inverse base, inverse retract); the motion is refused."
         super().__init__(
             RobotOrientationServiceFeature.defined_execution_errors["RobotNotAtKnownPose"], message=message
         )
 
 
+class HandNotOpen(DefinedExecutionError):
+    def __init__(self, message: Optional[str] = None):
+        if message is None:
+            message = "The hand is not fully open; ReturnHome requires it, because the home task assumes an open hand and parking with a labware held is not intended."
+        super().__init__(RobotOrientationServiceFeature.defined_execution_errors["HandNotOpen"], message=message)
+
+
+class PlcConnectionError(DefinedExecutionError):
+    def __init__(self, message: Optional[str] = None):
+        if message is None:
+            message = "Failed to connect to or communicate with the PLC over KV COM+ while reading the hand position."
+        super().__init__(RobotOrientationServiceFeature.defined_execution_errors["PlcConnectionError"], message=message)
+
+
+class PlcAccessError(DefinedExecutionError):
+    def __init__(self, message: Optional[str] = None):
+        if message is None:
+            message = "Failed to read the hand position from the PLC."
+        super().__init__(RobotOrientationServiceFeature.defined_execution_errors["PlcAccessError"], message=message)
+
+
 class PoseNotRestored(DefinedExecutionError):
     def __init__(self, message: Optional[str] = None):
         if message is None:
-            message = "The arm did not end at the expected pose (retract for forward, inverse retract for reverse) after the turn task."
+            message = "The arm did not end at the expected pose after a task: the turn target for SetOrientation, or an intermediate or the base pose for ReturnHome."
         super().__init__(RobotOrientationServiceFeature.defined_execution_errors["PoseNotRestored"], message=message)
 
 

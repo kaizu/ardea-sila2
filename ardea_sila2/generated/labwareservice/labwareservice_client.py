@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 
 class LabwareServiceClient:
     """
-
     Ardea labware handling: pick and put a labware by orchestrating the DENSO robot
     (b-CAP tasks) and the KEYENCE hand (KV COM+). Each command runs the approach
     task, actuates the hand (close for pick, open for put), runs the retract task,
@@ -32,7 +31,6 @@ class LabwareServiceClient:
     following a Put does not have to undo that move. PickLabware may start at either
     the base or the retract pose (from the base pose it moves to the retract pose
     first); PutLabware requires the retract pose. Neither command moves the carriage.
-
     """
 
     def PickLabware(
@@ -41,13 +39,11 @@ class LabwareServiceClient:
         PickLabware_IntermediateResponses, PickLabware_Responses
     ]:
         """
-
-        Pick a labware: verify the robot is at the base or the retract pose and, from
+          Pick a labware: verify the robot is at the base or the retract pose and, from
         the base pose, move it to the retract pose (which is where the approach task
         starts); then run the pick-approach task, close the hand, run the pick-retract
         task (which returns the robot to the retract pose), and confirm the retract
         pose. Intermediate responses report the current phase.
-
         """
         ...
 
@@ -57,12 +53,10 @@ class LabwareServiceClient:
         PutLabware_IntermediateResponses, PutLabware_Responses
     ]:
         """
-
-        Place a labware: verify the robot is at the retract pose (not the base pose),
+          Place a labware: verify the robot is at the retract pose (not the base pose),
         run the approach task, open the hand, run the retract task (robot to the retract
         pose) and confirm the retract pose. The robot is left there — it is not returned
         to the base pose, so a PickLabware at this station can start straight away.
         Intermediate responses report the current phase.
-
         """
         ...

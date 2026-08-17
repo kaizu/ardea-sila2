@@ -20,8 +20,9 @@ retract, or either inverse pose); see ``MotionConfig.at_movable_pose``.
 Other sections: ``[carriage]`` (travel params), ``[hand]`` (gripper params),
 ``[stations.<id>]`` (labware stations: position + approach/retract task pair), and
 ``[common].return_home`` (the shared retract->base task). Since PutLabware stops at the
-retract pose, ``return_home``/``return_home_reverse`` are no longer used by Pick/Put; they
-are kept for the explicit park/return-home command still to be written.
+retract pose, ``return_home`` is no longer used by Pick/Put: it is what
+RobotOrientationService.ReturnHome runs (see ``home_path``). ``return_home_reverse`` is
+currently unused -- no path home goes through the inverse base pose.
 """
 
 from __future__ import annotations
@@ -147,8 +148,7 @@ class MotionConfig:
     hand: HandConfig = field(default_factory=HandConfig)
     stations: dict[str, StationConfig] = field(default_factory=dict)
     # Common task: retract -> base pose (requires hand open). Not used by Pick/Put any
-    # more -- PutLabware now stops at the retract pose -- but kept for the explicit
-    # park/return-home command still to be written.
+    # more -- PutLabware stops at the retract pose -- but used by ReturnHome (home_path).
     return_home: str = "BasePosition"
     # reverse counterpart: inverse retract -> inverse base pose (requires hand open)
     return_home_reverse: str = "InverseBasePosition"
@@ -166,6 +166,33 @@ class MotionConfig:
             return self.base_pose if direction == "forward" else self.inverse_base_pose
         if self.retract_pose.matches(curjnt) or self.inverse_retract_pose.matches(curjnt):
             return self.retract_pose if direction == "forward" else self.inverse_retract_pose
+        return None
+
+    def home_path(self, curjnt: list[float]) -> "list[tuple[str, PoseConfig, str]] | None":
+        """Steps that park the arm at the base pose: (task, pose reached, its name).
+
+        ``[]`` means it is already there; ``None`` that it is at no known pose.
+        Used by RobotOrientationService.ReturnHome. Every leg is a transition that has
+        been run on the real machine:
+        - retract -> base is the old return-home task (``[common].return_home``),
+        - inverse base -> base is the same task SetOrientation's forward turn uses,
+        - inverse retract goes home **via the retract pose** rather than in one move:
+          both of its legs are proven, whereas a direct inverse-retract -> base task
+          would change pose family and facing at once and has never been run.
+        (``return_home_reverse`` is therefore still unused; reaching the inverse base
+        pose is not on any path home.)
+        """
+        if self.base_pose.matches(curjnt):
+            return []
+        if self.retract_pose.matches(curjnt):
+            return [(self.return_home, self.base_pose, "base")]
+        if self.inverse_base_pose.matches(curjnt):
+            return [(self.base_pose.task, self.base_pose, "base")]
+        if self.inverse_retract_pose.matches(curjnt):
+            return [
+                (self.retract_pose.task, self.retract_pose, "retract"),
+                (self.return_home, self.base_pose, "base"),
+            ]
         return None
 
     def poses_for(self, direction: str) -> "tuple[PoseConfig, PoseConfig]":

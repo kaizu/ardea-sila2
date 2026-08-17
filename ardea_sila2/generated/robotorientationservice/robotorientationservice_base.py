@@ -7,7 +7,12 @@ from typing import TYPE_CHECKING, Optional
 
 from sila2.server import FeatureImplementationBase, MetadataDict, ObservableCommandInstanceWithIntermediateResponses
 
-from .robotorientationservice_types import SetOrientation_IntermediateResponses, SetOrientation_Responses
+from .robotorientationservice_types import (
+    ReturnHome_IntermediateResponses,
+    ReturnHome_Responses,
+    SetOrientation_IntermediateResponses,
+    SetOrientation_Responses,
+)
 
 if TYPE_CHECKING:
 
@@ -19,19 +24,24 @@ class RobotOrientationServiceBase(FeatureImplementationBase, ABC):
 
     SetOrientation_default_lifetime_of_execution: Optional[timedelta]
 
+    ReturnHome_default_lifetime_of_execution: Optional[timedelta]
+
     def __init__(self, parent_server: Server):
         """
 
-        Turn the DENSO robot arm to face forward or reverse by running a dedicated
-        turn PacScript over b-CAP. "forward" brings the arm to the retract pose;
-        "reverse" brings it to the 180°-turned inverse retract pose. The command may
-        only be called while the arm is at one of the four known poses (base, retract,
-        inverse base, inverse retract), so the turn starts from a safe, known posture.
+        Move the DENSO robot arm between its four known poses by running dedicated
+        PacScripts over b-CAP. SetOrientation turns the arm to face forward or reverse,
+        keeping the pose family: "forward" brings a retract-family pose to the retract
+        pose, "reverse" to the 180°-turned inverse retract pose. ReturnHome parks the
+        arm at the base pose from any of the four. Both commands may only be called
+        while the arm is at one of the four known poses (base, retract, inverse base,
+        inverse retract), so the motion starts from a safe, known posture.
 
         """
         super().__init__(parent_server=parent_server)
 
         self.SetOrientation_default_lifetime_of_execution = None
+        self.ReturnHome_default_lifetime_of_execution = None
 
     @abstractmethod
     def SetOrientation(
@@ -58,6 +68,35 @@ class RobotOrientationServiceBase(FeatureImplementationBase, ABC):
           :return:
 
               - Orientation: The orientation reached: "forward" (retract pose) or "reverse" (inverse retract pose).
+
+
+        """
+
+    @abstractmethod
+    def ReturnHome(
+        self,
+        *,
+        metadata: MetadataDict,
+        instance: ObservableCommandInstanceWithIntermediateResponses[ReturnHome_IntermediateResponses],
+    ) -> ReturnHome_Responses:
+        """
+
+        Park the arm at the base pose from any of the four known poses. The base pose
+        needs no motion; the retract pose and the inverse base pose each take one task
+        (the arm turns to face forward on the way from the inverse base pose); the
+        inverse retract pose is reached in two steps, via the retract pose, so that
+        every leg is a transition already exercised on the machine. Requires the hand
+        to be fully open, since the home task assumes it. Intermediate responses report
+        the current phase.
+
+
+
+          :param metadata: The SiLA Client Metadata attached to the call
+          :param instance: The command instance, enabling sending status updates to subscribed clients
+
+          :return:
+
+              - AtBasePose: True if the arm ended at the base pose.
 
 
         """

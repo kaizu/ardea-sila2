@@ -4,7 +4,7 @@ import "SiLAFramework.proto";
 
 package sila2.jp.riken.ardea.robotorientationservice.v1;
 
-/* Turn the DENSO robot arm to face forward or reverse by running a dedicated turn PacScript over b-CAP. "forward" brings the arm to the retract pose; "reverse" brings it to the 180°-turned inverse retract pose. The command may only be called while the arm is at one of the four known poses (base, retract, inverse base, inverse retract), so the turn starts from a safe, known posture. */
+/* Move the DENSO robot arm between its four known poses by running dedicated PacScripts over b-CAP. SetOrientation turns the arm to face forward or reverse, keeping the pose family: "forward" brings a retract-family pose to the retract pose, "reverse" to the 180°-turned inverse retract pose. ReturnHome parks the arm at the base pose from any of the four. Both commands may only be called while the arm is at one of the four known poses (base, retract, inverse base, inverse retract), so the motion starts from a safe, known posture. */
 service RobotOrientationService {
   /* 
       Turn the arm to the requested orientation. Direction "forward" runs the
@@ -19,6 +19,22 @@ service RobotOrientationService {
   rpc SetOrientation_Intermediate (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.jp.riken.ardea.robotorientationservice.v1.SetOrientation_IntermediateResponses) {}
   /* Retrieve result of SetOrientation */
   rpc SetOrientation_Result(sila2.org.silastandard.CommandExecutionUUID) returns (sila2.jp.riken.ardea.robotorientationservice.v1.SetOrientation_Responses) {}
+  /* 
+      Park the arm at the base pose from any of the four known poses. The base pose
+      needs no motion; the retract pose and the inverse base pose each take one task
+      (the arm turns to face forward on the way from the inverse base pose); the
+      inverse retract pose is reached in two steps, via the retract pose, so that
+      every leg is a transition already exercised on the machine. Requires the hand
+      to be fully open, since the home task assumes it. Intermediate responses report
+      the current phase.
+     */
+  rpc ReturnHome (sila2.jp.riken.ardea.robotorientationservice.v1.ReturnHome_Parameters) returns (sila2.org.silastandard.CommandConfirmation) {}
+  /* Monitor the state of ReturnHome */
+  rpc ReturnHome_Info (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.org.silastandard.ExecutionInfo) {}
+  /* Retrieve intermediate responses of ReturnHome */
+  rpc ReturnHome_Intermediate (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.jp.riken.ardea.robotorientationservice.v1.ReturnHome_IntermediateResponses) {}
+  /* Retrieve result of ReturnHome */
+  rpc ReturnHome_Result(sila2.org.silastandard.CommandExecutionUUID) returns (sila2.jp.riken.ardea.robotorientationservice.v1.ReturnHome_Responses) {}
 }
 
 /* Parameters for SetOrientation */
@@ -34,4 +50,18 @@ message SetOrientation_Responses {
 /* Intermediate responses of SetOrientation */
 message SetOrientation_IntermediateResponses {
   sila2.org.silastandard.String Phase = 1;  /* The current phase of the turn sequence. */
+}
+
+/* Parameters for ReturnHome */
+message ReturnHome_Parameters {
+}
+
+/* Responses of ReturnHome */
+message ReturnHome_Responses {
+  sila2.org.silastandard.Boolean AtBasePose = 1;  /* True if the arm ended at the base pose. */
+}
+
+/* Intermediate responses of ReturnHome */
+message ReturnHome_IntermediateResponses {
+  sila2.org.silastandard.String Phase = 1;  /* The current phase of the return-home sequence. */
 }

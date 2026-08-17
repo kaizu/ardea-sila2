@@ -18,7 +18,7 @@ class RobotNotAtRetractPose(DefinedExecutionError):
 class RobotNotAtBasePose(DefinedExecutionError):
     def __init__(self, message: Optional[str] = None):
         if message is None:
-            message = "The robot is not at the base pose, which PickLabware requires (the retract pose is not allowed)."
+            message = 'The robot is at neither of the two poses PickLabware can start from (the station direction\'s base pose or retract pose). The identifier is kept for compatibility; it no longer means "the retract pose is not allowed".'
         super().__init__(LabwareServiceFeature.defined_execution_errors["RobotNotAtBasePose"], message=message)
 
 
@@ -39,7 +39,7 @@ class HandNotOpen(DefinedExecutionError):
 class PoseNotRestored(DefinedExecutionError):
     def __init__(self, message: Optional[str] = None):
         if message is None:
-            message = "The robot did not return to the retract pose after the pick-retract task."
+            message = "The robot did not reach the retract pose: after a pick-retract or put-retract task, or before the pick approach when it had to be moved there from the base pose."
         super().__init__(LabwareServiceFeature.defined_execution_errors["PoseNotRestored"], message=message)
 
 

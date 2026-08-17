@@ -12,9 +12,25 @@ class SetOrientation_Responses(NamedTuple):
     """
 
 
+class ReturnHome_Responses(NamedTuple):
+
+    AtBasePose: bool
+    """
+    True if the arm ended at the base pose.
+    """
+
+
 class SetOrientation_IntermediateResponses(NamedTuple):
 
     Phase: str
     """
     The current phase of the turn sequence.
+    """
+
+
+class ReturnHome_IntermediateResponses(NamedTuple):
+
+    Phase: str
+    """
+    The current phase of the return-home sequence.
     """

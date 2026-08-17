@@ -3,7 +3,10 @@ from .robotorientationservice_base import RobotOrientationServiceBase
 from .robotorientationservice_client import RobotOrientationServiceClient
 from .robotorientationservice_errors import (
     ControllerConnectionError,
+    HandNotOpen,
     InvalidDirection,
+    PlcAccessError,
+    PlcConnectionError,
     PoseNotRestored,
     RobotAccessError,
     RobotNotAtKnownPose,
@@ -11,7 +14,12 @@ from .robotorientationservice_errors import (
     TaskExecutionTimeout,
 )
 from .robotorientationservice_feature import RobotOrientationServiceFeature
-from .robotorientationservice_types import SetOrientation_IntermediateResponses, SetOrientation_Responses
+from .robotorientationservice_types import (
+    ReturnHome_IntermediateResponses,
+    ReturnHome_Responses,
+    SetOrientation_IntermediateResponses,
+    SetOrientation_Responses,
+)
 
 __all__ = [
     "RobotOrientationServiceBase",
@@ -19,8 +27,13 @@ __all__ = [
     "RobotOrientationServiceClient",
     "SetOrientation_Responses",
     "SetOrientation_IntermediateResponses",
+    "ReturnHome_Responses",
+    "ReturnHome_IntermediateResponses",
     "InvalidDirection",
     "RobotNotAtKnownPose",
+    "HandNotOpen",
+    "PlcConnectionError",
+    "PlcAccessError",
     "PoseNotRestored",
     "ControllerConnectionError",
     "RobotAccessError",

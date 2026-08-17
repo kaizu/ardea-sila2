@@ -1,16 +1,22 @@
-"""RobotOrientationService implementation (Ardea-specific): SetOrientation.
+"""RobotOrientationService implementation (Ardea-specific).
 
-Turns the DENSO arm to face forward or reverse by running a dedicated turn
-PacScript over b-CAP:
+Moves the DENSO arm between its four known poses by running PacScripts over b-CAP.
+
+``SetOrientation`` turns the arm to face forward or reverse, keeping the pose family:
 
 - ``forward`` -> RunTask(motion.to_forward)  -> ends at the retract pose
 - ``reverse`` -> RunTask(motion.to_reverse)  -> ends at the inverse retract pose
 
-The command may only run while the arm is at one of the four known poses (base,
-retract, inverse base, inverse retract) so the 180° turn starts from a safe,
-known posture. It holds the server OperationCoordinator for the whole turn so no
-carriage move or pick/put runs concurrently, and verifies the arm reached the
-expected pose afterwards.
+``ReturnHome`` parks the arm at the base pose from any of the four, walking the steps
+``MotionConfig.home_path`` returns (empty at the base pose; one task from the retract or
+inverse base pose; two -- via the retract pose -- from the inverse retract pose, so that
+no leg is a transition the machine has never run). It additionally requires the hand to
+be fully open, which the home task assumes; that is the one PLC read in this feature.
+
+Both commands may only run while the arm is at one of the four known poses so the motion
+starts from a safe, known posture. Both hold the server OperationCoordinator for the
+whole sequence so no carriage move or pick/put runs concurrently, and verify the arm
+reached the expected pose afterwards.
 """
 
 from __future__ import annotations
@@ -27,10 +33,17 @@ from bcap_sila2.bcap import (
 from orinexception import ORiNException
 from sila2.server import MetadataDict, ObservableCommandInstanceWithIntermediateResponses
 
+from kvcomplus_sila2 import kvcomplus
+
 from ..generated.robotorientationservice import (
     ControllerConnectionError,
+    HandNotOpen,
     InvalidDirection,
+    PlcAccessError,
+    PlcConnectionError,
     PoseNotRestored,
+    ReturnHome_IntermediateResponses,
+    ReturnHome_Responses,
     RobotAccessError,
     RobotNotAtKnownPose,
     RobotOrientationServiceBase,
@@ -44,6 +57,9 @@ if TYPE_CHECKING:
     from ..server import Server
 
 _ONE_CYCLE = 1  # RunTask mode: run once and stop
+DM = 18                  # device type for DM/D devices
+HAND_CUR_POS = 6060      # D6060 hand current position
+_HAND_OPEN_TOL = 3       # tolerance [units] for "hand fully open" (matches LabwareService)
 
 
 class RobotOrientationServiceImpl(RobotOrientationServiceBase):
@@ -74,6 +90,17 @@ class RobotOrientationServiceImpl(RobotOrientationServiceBase):
             raise TaskExecutionTimeout(str(e))
         except (ORiNException, TaskAbnormalStopError) as e:
             raise TaskAccessError(str(e))
+
+    def _hand_position(self) -> int:
+        """Read D6060 over KV COM+, mapping failures to this feature's SiLA errors."""
+        plc = self.parent_server.config.plc
+        try:
+            return kvcomplus.read_word(plc, DM, HAND_CUR_POS)
+        except kvcomplus.KvComError as e:
+            msg = str(e).lower()
+            if "bridge" in msg or "connect" in msg or "timed out" in msg:
+                raise PlcConnectionError(str(e))
+            raise PlcAccessError(str(e))
 
     def SetOrientation(
         self,
@@ -115,3 +142,51 @@ class RobotOrientationServiceImpl(RobotOrientationServiceBase):
 
             instance.progress = 1.0
             return SetOrientation_Responses(Orientation=direction)
+
+    def ReturnHome(
+        self,
+        *,
+        metadata: MetadataDict,
+        instance: ObservableCommandInstanceWithIntermediateResponses[ReturnHome_IntermediateResponses],
+    ) -> ReturnHome_Responses:
+        motion = self.parent_server.motion
+
+        def phase(name: str) -> None:
+            instance.send_intermediate_response(ReturnHome_IntermediateResponses(Phase=name))
+
+        # One motion at a time (shared robot/carriage OperationCoordinator).
+        with self.parent_server.operation_lock:
+            steps = motion.home_path(self._joint_angles())
+            if steps is None:
+                raise RobotNotAtKnownPose(
+                    "Robot is at none of the base/retract/inverse-base/inverse-retract "
+                    "poses; return-home refused."
+                )
+
+            # The home task assumes an open hand, and parking with a labware held is not
+            # intended -- checked even when already home, so the contract is the same
+            # whichever pose the arm is at.
+            hand_pos = self._hand_position()
+            open_pos = motion.hand.open_position
+            if abs(hand_pos - open_pos) > _HAND_OPEN_TOL:
+                raise HandNotOpen(
+                    f"Hand is at {hand_pos} (open={open_pos}); must be fully open to return home."
+                )
+
+            instance.begin_execution()
+            if not steps:
+                phase("already at the base pose")
+                instance.progress = 1.0
+                return ReturnHome_Responses(AtBasePose=True)
+
+            for task, target, name in steps:
+                phase(f"to {name}: RunTask({task})")
+                self._run_task(task)
+                phase(f"verify {name} pose")
+                if not target.matches(self._joint_angles()):
+                    raise PoseNotRestored(
+                        f"Robot did not reach the {name} pose after RunTask({task})."
+                    )
+
+            instance.progress = 1.0
+            return ReturnHome_Responses(AtBasePose=True)

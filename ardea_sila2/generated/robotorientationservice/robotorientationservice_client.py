@@ -12,18 +12,25 @@ if TYPE_CHECKING:
 
     from typing import Iterable, Optional
 
-    from robotorientationservice_types import SetOrientation_IntermediateResponses, SetOrientation_Responses
+    from robotorientationservice_types import (
+        ReturnHome_IntermediateResponses,
+        ReturnHome_Responses,
+        SetOrientation_IntermediateResponses,
+        SetOrientation_Responses,
+    )
     from sila2.client import ClientMetadataInstance, ClientObservableCommandInstanceWithIntermediateResponses
 
 
 class RobotOrientationServiceClient:
     """
 
-    Turn the DENSO robot arm to face forward or reverse by running a dedicated
-    turn PacScript over b-CAP. "forward" brings the arm to the retract pose;
-    "reverse" brings it to the 180°-turned inverse retract pose. The command may
-    only be called while the arm is at one of the four known poses (base, retract,
-    inverse base, inverse retract), so the turn starts from a safe, known posture.
+    Move the DENSO robot arm between its four known poses by running dedicated
+    PacScripts over b-CAP. SetOrientation turns the arm to face forward or reverse,
+    keeping the pose family: "forward" brings a retract-family pose to the retract
+    pose, "reverse" to the 180°-turned inverse retract pose. ReturnHome parks the
+    arm at the base pose from any of the four. Both commands may only be called
+    while the arm is at one of the four known poses (base, retract, inverse base,
+    inverse retract), so the motion starts from a safe, known posture.
 
     """
 
@@ -38,6 +45,24 @@ class RobotOrientationServiceClient:
         forward turn task and ends at the retract pose; "reverse" runs the reverse
         turn task and ends at the inverse retract pose. Requires the arm to start at
         one of the four known poses. Intermediate responses report the current phase.
+
+        """
+        ...
+
+    def ReturnHome(
+        self, *, metadata: Optional[Iterable[ClientMetadataInstance]] = None
+    ) -> ClientObservableCommandInstanceWithIntermediateResponses[
+        ReturnHome_IntermediateResponses, ReturnHome_Responses
+    ]:
+        """
+
+        Park the arm at the base pose from any of the four known poses. The base pose
+        needs no motion; the retract pose and the inverse base pose each take one task
+        (the arm turns to face forward on the way from the inverse base pose); the
+        inverse retract pose is reached in two steps, via the retract pose, so that
+        every leg is a transition already exercised on the machine. Requires the hand
+        to be fully open, since the home task assumes it. Intermediate responses report
+        the current phase.
 
         """
         ...
