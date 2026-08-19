@@ -94,6 +94,76 @@
     </DefinedExecutionErrors>
   </Command>
   <Command>
+    <Identifier>Transfer</Identifier>
+    <DisplayName>Transfer</DisplayName>
+    <Description>Carry a labware from one station to another, driving the whole route: move the
+      carriage to the source, turn the arm to face it if it faces the other way, pick,
+      move to the destination, turn again if needed, and put. The carriage therefore need
+      not start at the source station. The arm must start at one of the four known poses
+      (base, retract, or either 180&#176;-turned counterpart) and the hand must be fully open;
+      it ends at the destination's retract pose, ready for the next command. The turn is
+      performed holding the labware, which the machine supports. Intermediate responses
+      report the current phase.</Description>
+    <Observable>Yes</Observable>
+    <Parameter>
+      <Identifier>SourceStation</Identifier>
+      <DisplayName>Source Station</DisplayName>
+      <Description>Name of the station to take the labware from, as listed by StationNames.</Description>
+      <DataType>
+        <Basic>String</Basic>
+      </DataType>
+    </Parameter>
+    <Parameter>
+      <Identifier>DestinationStation</Identifier>
+      <DisplayName>Destination Station</DisplayName>
+      <Description>Name of the station to place the labware on, as listed by StationNames.</Description>
+      <DataType>
+        <Basic>String</Basic>
+      </DataType>
+    </Parameter>
+    <Response>
+      <Identifier>CarriagePosition</Identifier>
+      <DisplayName>Carriage Position</DisplayName>
+      <Description>The carriage position [mm] after the transfer, i.e. the destination station.</Description>
+      <DataType>
+        <Basic>Integer</Basic>
+      </DataType>
+    </Response>
+    <Response>
+      <Identifier>AtRetractPose</Identifier>
+      <DisplayName>At Retract Pose</DisplayName>
+      <Description>True if the arm ended at the destination direction's retract pose.</Description>
+      <DataType>
+        <Basic>Boolean</Basic>
+      </DataType>
+    </Response>
+    <IntermediateResponse>
+      <Identifier>Phase</Identifier>
+      <DisplayName>Phase</DisplayName>
+      <Description>The current phase of the transfer.</Description>
+      <DataType>
+        <Basic>String</Basic>
+      </DataType>
+    </IntermediateResponse>
+    <DefinedExecutionErrors>
+      <Identifier>InvalidStation</Identifier>
+      <Identifier>RobotNotAtKnownPose</Identifier>
+      <Identifier>HandNotOpen</Identifier>
+      <Identifier>CarriageNotReady</Identifier>
+      <Identifier>CarriageFault</Identifier>
+      <Identifier>MoveTimeout</Identifier>
+      <Identifier>PoseNotRestored</Identifier>
+      <Identifier>GraspFailed</Identifier>
+      <Identifier>HandError</Identifier>
+      <Identifier>ControllerConnectionError</Identifier>
+      <Identifier>RobotAccessError</Identifier>
+      <Identifier>TaskExecutionTimeout</Identifier>
+      <Identifier>TaskAccessError</Identifier>
+      <Identifier>PlcConnectionError</Identifier>
+      <Identifier>PlcAccessError</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+  <Command>
     <Identifier>MoveHand</Identifier>
     <DisplayName>Move Hand</DisplayName>
     <Description>Move the hand (gripper) to a position, in device units: 0 is fully closed and the
@@ -213,6 +283,31 @@
     </DefinedExecutionErrors>
   </Property>
   <!-- Command execution errors -->
+  <DefinedExecutionError>
+    <Identifier>InvalidStation</Identifier>
+    <DisplayName>Invalid Station</DisplayName>
+    <Description>A station name is not one the server knows, or the position it maps to is outside the carriage travel range.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>RobotNotAtKnownPose</Identifier>
+    <DisplayName>Robot Not At Known Pose</DisplayName>
+    <Description>The arm is at none of the four known poses (base, retract, inverse base, inverse retract), so a transfer cannot start.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>CarriageNotReady</Identifier>
+    <DisplayName>Carriage Not Ready</DisplayName>
+    <Description>The travel carriage is not ready to move (D6000.0 off or D6000.1 on).</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>CarriageFault</Identifier>
+    <DisplayName>Carriage Fault</DisplayName>
+    <Description>The travel carriage reports a fault or alarm (D6005 non-zero).</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>MoveTimeout</Identifier>
+    <DisplayName>Move Timeout</DisplayName>
+    <Description>The carriage move was not acknowledged or did not complete within the configured timeout.</Description>
+  </DefinedExecutionError>
   <DefinedExecutionError>
     <Identifier>InvalidHandPosition</Identifier>
     <DisplayName>Invalid Hand Position</DisplayName>

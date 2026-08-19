@@ -22,6 +22,8 @@ if TYPE_CHECKING:
         PutLabware_IntermediateResponses,
         PutLabware_Responses,
         ToggleLight_Responses,
+        Transfer_IntermediateResponses,
+        Transfer_Responses,
     )
     from sila2.client import (
         ClientMetadataInstance,
@@ -94,6 +96,27 @@ class LabwareServiceClient:
         pose) and confirm the retract pose. The robot is left there — it is not returned
         to the base pose, so a PickLabware at this station can start straight away.
         Intermediate responses report the current phase.
+
+        """
+        ...
+
+    def Transfer(
+        self,
+        SourceStation: str,
+        DestinationStation: str,
+        *,
+        metadata: Optional[Iterable[ClientMetadataInstance]] = None,
+    ) -> ClientObservableCommandInstanceWithIntermediateResponses[Transfer_IntermediateResponses, Transfer_Responses]:
+        """
+
+        Carry a labware from one station to another, driving the whole route: move the
+        carriage to the source, turn the arm to face it if it faces the other way, pick,
+        move to the destination, turn again if needed, and put. The carriage therefore need
+        not start at the source station. The arm must start at one of the four known poses
+        (base, retract, or either 180°-turned counterpart) and the hand must be fully open;
+        it ends at the destination's retract pose, ready for the next command. The turn is
+        performed holding the labware, which the machine supports. Intermediate responses
+        report the current phase.
 
         """
         ...

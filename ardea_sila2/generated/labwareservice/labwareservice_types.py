@@ -28,6 +28,19 @@ class PutLabware_Responses(NamedTuple):
     """
 
 
+class Transfer_Responses(NamedTuple):
+
+    CarriagePosition: int
+    """
+    The carriage position [mm] after the transfer, i.e. the destination station.
+    """
+
+    AtRetractPose: bool
+    """
+    True if the arm ended at the destination direction's retract pose.
+    """
+
+
 class MoveHand_Responses(NamedTuple):
 
     Position: int
@@ -62,6 +75,14 @@ class PutLabware_IntermediateResponses(NamedTuple):
     Phase: str
     """
     The current phase of the put sequence.
+    """
+
+
+class Transfer_IntermediateResponses(NamedTuple):
+
+    Phase: str
+    """
+    The current phase of the transfer.
     """
 
 

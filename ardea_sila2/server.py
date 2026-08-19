@@ -46,6 +46,7 @@ from .generated.robotposeservice import RobotPoseServiceFeature
 
 from .config import Config
 from .motion_config import MotionConfig
+from .ops import MotionOps
 
 logger = logging.getLogger(__name__)
 
@@ -77,10 +78,15 @@ class Server(SilaServer):
             )
 
         # OperationCoordinator: a single process-wide lock making robot and carriage
-        # motion mutually exclusive. CarriageService.MoveCarriage and (later)
-        # LabwareService Pick/Put acquire it so a carriage move and a robot pick can
-        # never run at the same time.
+        # motion mutually exclusive. Every feature command that moves something takes
+        # it, so a carriage move and a robot pick can never run at the same time.
+        # It is NOT reentrant, which is why the physical operations live in ``ops``:
+        # a command that composes others (Transfer) calls those, never the commands.
         self.operation_lock = threading.Lock()
+
+        # The machine's physical operations, shared by the feature implementations.
+        # Takes no lock of its own: whoever calls it holds operation_lock.
+        self.ops = MotionOps(self)
 
         if name is None:
             name = "Ardea SiLA2 Server"

@@ -8,6 +8,41 @@ from sila2.framework.errors.defined_execution_error import DefinedExecutionError
 from .labwareservice_feature import LabwareServiceFeature
 
 
+class InvalidStation(DefinedExecutionError):
+    def __init__(self, message: Optional[str] = None):
+        if message is None:
+            message = "A station name is not one the server knows, or the position it maps to is outside the carriage travel range."
+        super().__init__(LabwareServiceFeature.defined_execution_errors["InvalidStation"], message=message)
+
+
+class RobotNotAtKnownPose(DefinedExecutionError):
+    def __init__(self, message: Optional[str] = None):
+        if message is None:
+            message = "The arm is at none of the four known poses (base, retract, inverse base, inverse retract), so a transfer cannot start."
+        super().__init__(LabwareServiceFeature.defined_execution_errors["RobotNotAtKnownPose"], message=message)
+
+
+class CarriageNotReady(DefinedExecutionError):
+    def __init__(self, message: Optional[str] = None):
+        if message is None:
+            message = "The travel carriage is not ready to move (D6000.0 off or D6000.1 on)."
+        super().__init__(LabwareServiceFeature.defined_execution_errors["CarriageNotReady"], message=message)
+
+
+class CarriageFault(DefinedExecutionError):
+    def __init__(self, message: Optional[str] = None):
+        if message is None:
+            message = "The travel carriage reports a fault or alarm (D6005 non-zero)."
+        super().__init__(LabwareServiceFeature.defined_execution_errors["CarriageFault"], message=message)
+
+
+class MoveTimeout(DefinedExecutionError):
+    def __init__(self, message: Optional[str] = None):
+        if message is None:
+            message = "The carriage move was not acknowledged or did not complete within the configured timeout."
+        super().__init__(LabwareServiceFeature.defined_execution_errors["MoveTimeout"], message=message)
+
+
 class InvalidHandPosition(DefinedExecutionError):
     def __init__(self, message: Optional[str] = None):
         if message is None:

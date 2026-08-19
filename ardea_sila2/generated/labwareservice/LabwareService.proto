@@ -35,6 +35,23 @@ service LabwareService {
   /* Retrieve result of PutLabware */
   rpc PutLabware_Result(sila2.org.silastandard.CommandExecutionUUID) returns (sila2.jp.riken.ardea.labwareservice.v1.PutLabware_Responses) {}
   /* 
+      Carry a labware from one station to another, driving the whole route: move the
+      carriage to the source, turn the arm to face it if it faces the other way, pick,
+      move to the destination, turn again if needed, and put. The carriage therefore need
+      not start at the source station. The arm must start at one of the four known poses
+      (base, retract, or either 180°-turned counterpart) and the hand must be fully open;
+      it ends at the destination's retract pose, ready for the next command. The turn is
+      performed holding the labware, which the machine supports. Intermediate responses
+      report the current phase.
+     */
+  rpc Transfer (sila2.jp.riken.ardea.labwareservice.v1.Transfer_Parameters) returns (sila2.org.silastandard.CommandConfirmation) {}
+  /* Monitor the state of Transfer */
+  rpc Transfer_Info (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.org.silastandard.ExecutionInfo) {}
+  /* Retrieve intermediate responses of Transfer */
+  rpc Transfer_Intermediate (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.jp.riken.ardea.labwareservice.v1.Transfer_IntermediateResponses) {}
+  /* Retrieve result of Transfer */
+  rpc Transfer_Result(sila2.org.silastandard.CommandExecutionUUID) returns (sila2.jp.riken.ardea.labwareservice.v1.Transfer_Responses) {}
+  /* 
       Move the hand (gripper) to a position, in device units: 0 is fully closed and the
       configured open position (140 on this machine) fully open. Speed and grip force are
       not parameters — they come from the motion configuration, so the hand never grips
@@ -100,6 +117,23 @@ message PutLabware_Responses {
 /* Intermediate responses of PutLabware */
 message PutLabware_IntermediateResponses {
   sila2.org.silastandard.String Phase = 1;  /* The current phase of the put sequence. */
+}
+
+/* Parameters for Transfer */
+message Transfer_Parameters {
+  sila2.org.silastandard.String SourceStation = 1;  /* Name of the station to take the labware from, as listed by StationNames. */
+  sila2.org.silastandard.String DestinationStation = 2;  /* Name of the station to place the labware on, as listed by StationNames. */
+}
+
+/* Responses of Transfer */
+message Transfer_Responses {
+  sila2.org.silastandard.Integer CarriagePosition = 1;  /* The carriage position [mm] after the transfer, i.e. the destination station. */
+  sila2.org.silastandard.Boolean AtRetractPose = 2;  /* True if the arm ended at the destination direction's retract pose. */
+}
+
+/* Intermediate responses of Transfer */
+message Transfer_IntermediateResponses {
+  sila2.org.silastandard.String Phase = 1;  /* The current phase of the transfer. */
 }
 
 /* Parameters for MoveHand */

@@ -17,6 +17,8 @@ from .labwareservice_types import (
     PutLabware_IntermediateResponses,
     PutLabware_Responses,
     ToggleLight_Responses,
+    Transfer_IntermediateResponses,
+    Transfer_Responses,
 )
 
 if TYPE_CHECKING:
@@ -30,6 +32,8 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
     PickLabware_default_lifetime_of_execution: Optional[timedelta]
 
     PutLabware_default_lifetime_of_execution: Optional[timedelta]
+
+    Transfer_default_lifetime_of_execution: Optional[timedelta]
 
     MoveHand_default_lifetime_of_execution: Optional[timedelta]
 
@@ -56,6 +60,7 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
 
         self.PickLabware_default_lifetime_of_execution = None
         self.PutLabware_default_lifetime_of_execution = None
+        self.Transfer_default_lifetime_of_execution = None
         self.MoveHand_default_lifetime_of_execution = None
         self.ActivateHand_default_lifetime_of_execution = None
 
@@ -143,6 +148,44 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
           :return:
 
               - AtRetractPose: True if the robot ended at the retract pose after the put.
+
+
+        """
+
+    @abstractmethod
+    def Transfer(
+        self,
+        SourceStation: str,
+        DestinationStation: str,
+        *,
+        metadata: MetadataDict,
+        instance: ObservableCommandInstanceWithIntermediateResponses[Transfer_IntermediateResponses],
+    ) -> Transfer_Responses:
+        """
+
+        Carry a labware from one station to another, driving the whole route: move the
+        carriage to the source, turn the arm to face it if it faces the other way, pick,
+        move to the destination, turn again if needed, and put. The carriage therefore need
+        not start at the source station. The arm must start at one of the four known poses
+        (base, retract, or either 180°-turned counterpart) and the hand must be fully open;
+        it ends at the destination's retract pose, ready for the next command. The turn is
+        performed holding the labware, which the machine supports. Intermediate responses
+        report the current phase.
+
+
+
+          :param SourceStation: Name of the station to take the labware from, as listed by StationNames.
+
+          :param DestinationStation: Name of the station to place the labware on, as listed by StationNames.
+
+          :param metadata: The SiLA Client Metadata attached to the call
+          :param instance: The command instance, enabling sending status updates to subscribed clients
+
+          :return:
+
+              - CarriagePosition: The carriage position [mm] after the transfer, i.e. the destination station.
+
+              - AtRetractPose: True if the arm ended at the destination direction's retract pose.
 
 
         """
