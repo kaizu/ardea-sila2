@@ -33,3 +33,9 @@ startup_timeout = 10.0                    # max wait for the 32-bit bridge subpr
 [server]
 host = "0.0.0.0"          # SiLA server listen address
 port = 50053              # SiLA server listen port
+
+[light]
+# The machine light is a boolean variable on the ROBOT CONTROLLER (b-CAP), not a PLC
+# signal -- established on the real machine 2026-08-19. LabwareService.ToggleLight and
+# the LightIsOn property read and write it. Optional; the default is shown.
+variable = "IO72"
