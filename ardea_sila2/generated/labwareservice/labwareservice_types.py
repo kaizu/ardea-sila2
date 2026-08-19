@@ -4,6 +4,14 @@ from __future__ import annotations
 from typing import NamedTuple
 
 
+class ToggleLight_Responses(NamedTuple):
+
+    IsOn: bool
+    """
+    True if the light is on after the toggle.
+    """
+
+
 class PickLabware_Responses(NamedTuple):
 
     AtRetractPose: bool
@@ -20,6 +28,27 @@ class PutLabware_Responses(NamedTuple):
     """
 
 
+class MoveHand_Responses(NamedTuple):
+
+    Position: int
+    """
+    The hand position reached (device units), read back after the move.
+    """
+
+    StoppedShort: bool
+    """
+    True if the jaws stopped before the commanded position, i.e. something is held (grip bit D6002.6 = 0).
+    """
+
+
+class ActivateHand_Responses(NamedTuple):
+
+    Activated: bool
+    """
+    True if the hand reported the activated state before the timeout.
+    """
+
+
 class PickLabware_IntermediateResponses(NamedTuple):
 
     Phase: str
@@ -33,4 +62,20 @@ class PutLabware_IntermediateResponses(NamedTuple):
     Phase: str
     """
     The current phase of the put sequence.
+    """
+
+
+class MoveHand_IntermediateResponses(NamedTuple):
+
+    Phase: str
+    """
+    The current phase of the hand move.
+    """
+
+
+class ActivateHand_IntermediateResponses(NamedTuple):
+
+    Phase: str
+    """
+    The current phase of the activation.
     """

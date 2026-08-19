@@ -8,10 +8,15 @@ from typing import TYPE_CHECKING, Optional
 from sila2.server import FeatureImplementationBase, MetadataDict, ObservableCommandInstanceWithIntermediateResponses
 
 from .labwareservice_types import (
+    ActivateHand_IntermediateResponses,
+    ActivateHand_Responses,
+    MoveHand_IntermediateResponses,
+    MoveHand_Responses,
     PickLabware_IntermediateResponses,
     PickLabware_Responses,
     PutLabware_IntermediateResponses,
     PutLabware_Responses,
+    ToggleLight_Responses,
 )
 
 if TYPE_CHECKING:
@@ -26,21 +31,67 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
 
     PutLabware_default_lifetime_of_execution: Optional[timedelta]
 
+    MoveHand_default_lifetime_of_execution: Optional[timedelta]
+
+    ActivateHand_default_lifetime_of_execution: Optional[timedelta]
+
     def __init__(self, parent_server: Server):
         """
-            Ardea labware handling: pick and put a labware by orchestrating the DENSO robot
-        (b-CAP tasks) and the KEYENCE hand (KV COM+). Each command runs the approach
-        task, actuates the hand (close for pick, open for put), runs the retract task,
-        and confirms the robot returned to the retract pose. Both commands end at the
-        retract pose: PutLabware does not return the robot to the base pose, so a Pick
-        following a Put does not have to undo that move. PickLabware may start at either
-        the base or the retract pose (from the base pose it moves to the retract pose
-        first); PutLabware requires the retract pose. Neither command moves the carriage.
+
+        Ardea labware handling, plus direct control of the two actuators it drives.
+        PickLabware and PutLabware orchestrate the DENSO robot (b-CAP tasks) and the
+        KEYENCE hand (KV COM+): each runs the approach task, actuates the hand (close for
+        pick, open for put), runs the retract task, and confirms the robot returned to the
+        retract pose. Both end at the retract pose: PutLabware does not return the robot to
+        the base pose, so a Pick following a Put does not have to undo that move.
+        PickLabware may start at either the base or the retract pose (from the base pose it
+        moves to the retract pose first); PutLabware requires the retract pose. Neither
+        command moves the carriage. MoveHand and ActivateHand drive the gripper on its own,
+        and ToggleLight switches the machine light (a robot-controller variable). Those three
+        are utilities for setup and debugging rather than labware handling; they live here to
+        keep the server to one Ardea handling feature.
+
         """
         super().__init__(parent_server=parent_server)
 
         self.PickLabware_default_lifetime_of_execution = None
         self.PutLabware_default_lifetime_of_execution = None
+        self.MoveHand_default_lifetime_of_execution = None
+        self.ActivateHand_default_lifetime_of_execution = None
+
+    @abstractmethod
+    def get_LightIsOn(self, *, metadata: MetadataDict) -> bool:
+        """
+
+        Whether the machine light is currently on. Read so a client can act on the actual
+        state instead of guessing it from a blind ToggleLight.
+
+
+          :param metadata: The SiLA Client Metadata attached to the call
+          :return:
+        Whether the machine light is currently on. Read so a client can act on the actual
+        state instead of guessing it from a blind ToggleLight.
+
+        """
+
+    @abstractmethod
+    def ToggleLight(self, *, metadata: MetadataDict) -> ToggleLight_Responses:
+        """
+
+        Turn the machine light off if it is on and on if it is off, and report which it
+        ended up as. The light is a boolean variable on the robot controller (read and
+        written over b-CAP), not a PLC signal, and its name comes from the configuration.
+
+
+
+          :param metadata: The SiLA Client Metadata attached to the call
+
+          :return:
+
+              - IsOn: True if the light is on after the toggle.
+
+
+        """
 
     @abstractmethod
     def PickLabware(
@@ -50,11 +101,13 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
         instance: ObservableCommandInstanceWithIntermediateResponses[PickLabware_IntermediateResponses],
     ) -> PickLabware_Responses:
         """
-          Pick a labware: verify the robot is at the base or the retract pose and, from
+
+        Pick a labware: verify the robot is at the base or the retract pose and, from
         the base pose, move it to the retract pose (which is where the approach task
         starts); then run the pick-approach task, close the hand, run the pick-retract
         task (which returns the robot to the retract pose), and confirm the retract
         pose. Intermediate responses report the current phase.
+
 
 
           :param metadata: The SiLA Client Metadata attached to the call
@@ -75,11 +128,13 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
         instance: ObservableCommandInstanceWithIntermediateResponses[PutLabware_IntermediateResponses],
     ) -> PutLabware_Responses:
         """
-          Place a labware: verify the robot is at the retract pose (not the base pose),
+
+        Place a labware: verify the robot is at the retract pose (not the base pose),
         run the approach task, open the hand, run the retract task (robot to the retract
         pose) and confirm the retract pose. The robot is left there — it is not returned
         to the base pose, so a PickLabware at this station can start straight away.
         Intermediate responses report the current phase.
+
 
 
           :param metadata: The SiLA Client Metadata attached to the call
@@ -88,6 +143,68 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
           :return:
 
               - AtRetractPose: True if the robot ended at the retract pose after the put.
+
+
+        """
+
+    @abstractmethod
+    def MoveHand(
+        self,
+        Position: int,
+        *,
+        metadata: MetadataDict,
+        instance: ObservableCommandInstanceWithIntermediateResponses[MoveHand_IntermediateResponses],
+    ) -> MoveHand_Responses:
+        """
+
+        Move the hand (gripper) to a position, in device units: 0 is fully closed and the
+        configured open position (140 on this machine) fully open. Speed and grip force are
+        not parameters — they come from the motion configuration, so the hand never grips
+        with an arbitrary force. If the hand is found deactivated it is re-activated first,
+        but only when the jaws are open: re-activation strokes them, which would drop a held
+        labware. Reports the position reached and whether the jaws stopped short of the
+        commanded one, which is what holding an object looks like. Intermediate responses
+        report the current phase.
+
+
+
+          :param Position: Target position in device units: 0 = fully closed .. open position = fully open.
+
+          :param metadata: The SiLA Client Metadata attached to the call
+          :param instance: The command instance, enabling sending status updates to subscribed clients
+
+          :return:
+
+              - Position: The hand position reached (device units), read back after the move.
+
+              - StoppedShort: True if the jaws stopped before the commanded position, i.e. something is held (grip bit D6002.6 = 0).
+
+
+        """
+
+    @abstractmethod
+    def ActivateHand(
+        self,
+        *,
+        metadata: MetadataDict,
+        instance: ObservableCommandInstanceWithIntermediateResponses[ActivateHand_IntermediateResponses],
+    ) -> ActivateHand_Responses:
+        """
+
+        Re-activate the hand by toggling its activation signal off and on again, and wait
+        for the activated state. Writing the signal on alone does not recover a hand that is
+        stuck deactivated — only the falling edge does. Activation physically strokes the
+        jaws, so the command refuses unless they are fully open. Intermediate responses
+        report the current phase.
+
+
+
+          :param metadata: The SiLA Client Metadata attached to the call
+          :param instance: The command instance, enabling sending status updates to subscribed clients
+
+          :return:
+
+              - Activated: True if the hand reported the activated state before the timeout.
 
 
         """

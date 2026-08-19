@@ -7,6 +7,8 @@ The Ardea device is driven through two providers at once:
 - the KEYENCE PLC over KV COM+ (reusing ``kvcomplus_sila2``), configured by the
   ``[plc]`` section.
 
+``[light]`` names the robot-controller variable that switches the machine light.
+
 The connection dataclasses are reused verbatim from the provider packages so
 their feature implementations — which read ``self.parent_server.config.controller``,
 ``.task`` and ``.plc`` — work unchanged when registered on the Ardea server.
@@ -37,11 +39,24 @@ class ServerConfig:
 
 
 @dataclass
+class LightConfig:
+    """The machine light.
+
+    It is a boolean variable on the **robot controller** (b-CAP), not a PLC signal --
+    established on the real machine 2026-08-19, after a sweep of the PLC relay area found
+    nothing that followed the light. Only the variable name is configurable.
+    """
+
+    variable: str = "IO72"
+
+
+@dataclass
 class Config:
     controller: ControllerConfig  # b-CAP / DENSO robot
     plc: PlcConfig                 # KV COM+ / KEYENCE PLC
     task: TaskConfig = field(default_factory=TaskConfig)
     server: ServerConfig = field(default_factory=ServerConfig)
+    light: LightConfig = field(default_factory=LightConfig)
 
 
 def _build(cls: type, data: dict[str, Any], section: str) -> Any:
@@ -84,4 +99,7 @@ def load_config(path: str | Path) -> Config:
     plc = _build(PlcConfig, plc_data, "plc")
     task = _build(TaskConfig, data.get("task", {}), "task")
     server = _build(ServerConfig, data.get("server", {}), "server")
-    return Config(controller=controller, plc=plc, task=task, server=server)
+    light = _build(LightConfig, data.get("light", {}), "light")
+    if not light.variable:
+        raise ConfigError("[light].variable must be a non-empty controller variable name.")
+    return Config(controller=controller, plc=plc, task=task, server=server, light=light)

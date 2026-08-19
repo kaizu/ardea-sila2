@@ -8,6 +8,20 @@ from sila2.framework.errors.defined_execution_error import DefinedExecutionError
 from .labwareservice_feature import LabwareServiceFeature
 
 
+class InvalidHandPosition(DefinedExecutionError):
+    def __init__(self, message: Optional[str] = None):
+        if message is None:
+            message = "The requested hand position is outside 0 .. the configured open position."
+        super().__init__(LabwareServiceFeature.defined_execution_errors["InvalidHandPosition"], message=message)
+
+
+class VariableAccessError(DefinedExecutionError):
+    def __init__(self, message: Optional[str] = None):
+        if message is None:
+            message = "Failed to read or write the light variable on the robot controller."
+        super().__init__(LabwareServiceFeature.defined_execution_errors["VariableAccessError"], message=message)
+
+
 class RobotNotAtRetractPose(DefinedExecutionError):
     def __init__(self, message: Optional[str] = None):
         if message is None:

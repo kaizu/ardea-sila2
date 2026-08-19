@@ -6,14 +6,18 @@
   <Identifier>LabwareService</Identifier>
   <DisplayName>Labware Service</DisplayName>
   <Description>
-    Ardea labware handling: pick and put a labware by orchestrating the DENSO robot
-    (b-CAP tasks) and the KEYENCE hand (KV COM+). Each command runs the approach
-    task, actuates the hand (close for pick, open for put), runs the retract task,
-    and confirms the robot returned to the retract pose. Both commands end at the
-    retract pose: PutLabware does not return the robot to the base pose, so a Pick
-    following a Put does not have to undo that move. PickLabware may start at either
-    the base or the retract pose (from the base pose it moves to the retract pose
-    first); PutLabware requires the retract pose. Neither command moves the carriage.
+    Ardea labware handling, plus direct control of the two actuators it drives.
+    PickLabware and PutLabware orchestrate the DENSO robot (b-CAP tasks) and the
+    KEYENCE hand (KV COM+): each runs the approach task, actuates the hand (close for
+    pick, open for put), runs the retract task, and confirms the robot returned to the
+    retract pose. Both end at the retract pose: PutLabware does not return the robot to
+    the base pose, so a Pick following a Put does not have to undo that move.
+    PickLabware may start at either the base or the retract pose (from the base pose it
+    moves to the retract pose first); PutLabware requires the retract pose. Neither
+    command moves the carriage. MoveHand and ActivateHand drive the gripper on its own,
+    and ToggleLight switches the machine light (a robot-controller variable). Those three
+    are utilities for setup and debugging rather than labware handling; they live here to
+    keep the server to one Ardea handling feature.
   </Description>
 
   <!-- Commands -->
@@ -102,7 +106,148 @@
     </DefinedExecutionErrors>
   </Command>
 
+  <Command>
+    <Identifier>MoveHand</Identifier>
+    <DisplayName>Move Hand</DisplayName>
+    <Description>
+      Move the hand (gripper) to a position, in device units: 0 is fully closed and the
+      configured open position (140 on this machine) fully open. Speed and grip force are
+      not parameters — they come from the motion configuration, so the hand never grips
+      with an arbitrary force. If the hand is found deactivated it is re-activated first,
+      but only when the jaws are open: re-activation strokes them, which would drop a held
+      labware. Reports the position reached and whether the jaws stopped short of the
+      commanded one, which is what holding an object looks like. Intermediate responses
+      report the current phase.
+    </Description>
+    <Observable>Yes</Observable>
+    <Parameter>
+      <Identifier>Position</Identifier>
+      <DisplayName>Position</DisplayName>
+      <Description>Target position in device units: 0 = fully closed .. open position = fully open.</Description>
+      <DataType>
+        <Basic>Integer</Basic>
+      </DataType>
+    </Parameter>
+    <Response>
+      <Identifier>Position</Identifier>
+      <DisplayName>Position</DisplayName>
+      <Description>The hand position reached (device units), read back after the move.</Description>
+      <DataType>
+        <Basic>Integer</Basic>
+      </DataType>
+    </Response>
+    <Response>
+      <Identifier>StoppedShort</Identifier>
+      <DisplayName>Stopped Short</DisplayName>
+      <Description>True if the jaws stopped before the commanded position, i.e. something is held (grip bit D6002.6 = 0).</Description>
+      <DataType>
+        <Basic>Boolean</Basic>
+      </DataType>
+    </Response>
+    <IntermediateResponse>
+      <Identifier>Phase</Identifier>
+      <DisplayName>Phase</DisplayName>
+      <Description>The current phase of the hand move.</Description>
+      <DataType>
+        <Basic>String</Basic>
+      </DataType>
+    </IntermediateResponse>
+    <DefinedExecutionErrors>
+      <Identifier>InvalidHandPosition</Identifier>
+      <Identifier>HandNotOpen</Identifier>
+      <Identifier>HandError</Identifier>
+      <Identifier>PlcConnectionError</Identifier>
+      <Identifier>PlcAccessError</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+
+  <Command>
+    <Identifier>ActivateHand</Identifier>
+    <DisplayName>Activate Hand</DisplayName>
+    <Description>
+      Re-activate the hand by toggling its activation signal off and on again, and wait
+      for the activated state. Writing the signal on alone does not recover a hand that is
+      stuck deactivated — only the falling edge does. Activation physically strokes the
+      jaws, so the command refuses unless they are fully open. Intermediate responses
+      report the current phase.
+    </Description>
+    <Observable>Yes</Observable>
+    <Response>
+      <Identifier>Activated</Identifier>
+      <DisplayName>Activated</DisplayName>
+      <Description>True if the hand reported the activated state before the timeout.</Description>
+      <DataType>
+        <Basic>Boolean</Basic>
+      </DataType>
+    </Response>
+    <IntermediateResponse>
+      <Identifier>Phase</Identifier>
+      <DisplayName>Phase</DisplayName>
+      <Description>The current phase of the activation.</Description>
+      <DataType>
+        <Basic>String</Basic>
+      </DataType>
+    </IntermediateResponse>
+    <DefinedExecutionErrors>
+      <Identifier>HandNotOpen</Identifier>
+      <Identifier>HandError</Identifier>
+      <Identifier>PlcConnectionError</Identifier>
+      <Identifier>PlcAccessError</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+
+  <Command>
+    <Identifier>ToggleLight</Identifier>
+    <DisplayName>Toggle Light</DisplayName>
+    <Description>
+      Turn the machine light off if it is on and on if it is off, and report which it
+      ended up as. The light is a boolean variable on the robot controller (read and
+      written over b-CAP), not a PLC signal, and its name comes from the configuration.
+    </Description>
+    <Observable>No</Observable>
+    <Response>
+      <Identifier>IsOn</Identifier>
+      <DisplayName>Is On</DisplayName>
+      <Description>True if the light is on after the toggle.</Description>
+      <DataType>
+        <Basic>Boolean</Basic>
+      </DataType>
+    </Response>
+    <DefinedExecutionErrors>
+      <Identifier>ControllerConnectionError</Identifier>
+      <Identifier>VariableAccessError</Identifier>
+    </DefinedExecutionErrors>
+  </Command>
+
+  <!-- Properties -->
+  <Property>
+    <Identifier>LightIsOn</Identifier>
+    <DisplayName>Light Is On</DisplayName>
+    <Description>
+      Whether the machine light is currently on. Read so a client can act on the actual
+      state instead of guessing it from a blind ToggleLight.
+    </Description>
+    <Observable>No</Observable>
+    <DataType>
+      <Basic>Boolean</Basic>
+    </DataType>
+    <DefinedExecutionErrors>
+      <Identifier>ControllerConnectionError</Identifier>
+      <Identifier>VariableAccessError</Identifier>
+    </DefinedExecutionErrors>
+  </Property>
+
   <!-- Command execution errors -->
+  <DefinedExecutionError>
+    <Identifier>InvalidHandPosition</Identifier>
+    <DisplayName>Invalid Hand Position</DisplayName>
+    <Description>The requested hand position is outside 0 .. the configured open position.</Description>
+  </DefinedExecutionError>
+  <DefinedExecutionError>
+    <Identifier>VariableAccessError</Identifier>
+    <DisplayName>Variable Access Error</DisplayName>
+    <Description>Failed to read or write the light variable on the robot controller.</Description>
+  </DefinedExecutionError>
   <DefinedExecutionError>
     <Identifier>RobotNotAtRetractPose</Identifier>
     <DisplayName>Robot Not At Retract Pose</DisplayName>

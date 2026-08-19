@@ -13,25 +13,58 @@ if TYPE_CHECKING:
     from typing import Iterable, Optional
 
     from labwareservice_types import (
+        ActivateHand_IntermediateResponses,
+        ActivateHand_Responses,
+        MoveHand_IntermediateResponses,
+        MoveHand_Responses,
         PickLabware_IntermediateResponses,
         PickLabware_Responses,
         PutLabware_IntermediateResponses,
         PutLabware_Responses,
+        ToggleLight_Responses,
     )
-    from sila2.client import ClientMetadataInstance, ClientObservableCommandInstanceWithIntermediateResponses
+    from sila2.client import (
+        ClientMetadataInstance,
+        ClientObservableCommandInstanceWithIntermediateResponses,
+        ClientUnobservableProperty,
+    )
 
 
 class LabwareServiceClient:
     """
-    Ardea labware handling: pick and put a labware by orchestrating the DENSO robot
-    (b-CAP tasks) and the KEYENCE hand (KV COM+). Each command runs the approach
-    task, actuates the hand (close for pick, open for put), runs the retract task,
-    and confirms the robot returned to the retract pose. Both commands end at the
-    retract pose: PutLabware does not return the robot to the base pose, so a Pick
-    following a Put does not have to undo that move. PickLabware may start at either
-    the base or the retract pose (from the base pose it moves to the retract pose
-    first); PutLabware requires the retract pose. Neither command moves the carriage.
+
+    Ardea labware handling, plus direct control of the two actuators it drives.
+    PickLabware and PutLabware orchestrate the DENSO robot (b-CAP tasks) and the
+    KEYENCE hand (KV COM+): each runs the approach task, actuates the hand (close for
+    pick, open for put), runs the retract task, and confirms the robot returned to the
+    retract pose. Both end at the retract pose: PutLabware does not return the robot to
+    the base pose, so a Pick following a Put does not have to undo that move.
+    PickLabware may start at either the base or the retract pose (from the base pose it
+    moves to the retract pose first); PutLabware requires the retract pose. Neither
+    command moves the carriage. MoveHand and ActivateHand drive the gripper on its own,
+    and ToggleLight switches the machine light (a robot-controller variable). Those three
+    are utilities for setup and debugging rather than labware handling; they live here to
+    keep the server to one Ardea handling feature.
+
     """
+
+    LightIsOn: ClientUnobservableProperty[bool]
+    """
+    
+      Whether the machine light is currently on. Read so a client can act on the actual
+      state instead of guessing it from a blind ToggleLight.
+    
+    """
+
+    def ToggleLight(self, *, metadata: Optional[Iterable[ClientMetadataInstance]] = None) -> ToggleLight_Responses:
+        """
+
+        Turn the machine light off if it is on and on if it is off, and report which it
+        ended up as. The light is a boolean variable on the robot controller (read and
+        written over b-CAP), not a PLC signal, and its name comes from the configuration.
+
+        """
+        ...
 
     def PickLabware(
         self, *, metadata: Optional[Iterable[ClientMetadataInstance]] = None
@@ -39,11 +72,13 @@ class LabwareServiceClient:
         PickLabware_IntermediateResponses, PickLabware_Responses
     ]:
         """
-          Pick a labware: verify the robot is at the base or the retract pose and, from
+
+        Pick a labware: verify the robot is at the base or the retract pose and, from
         the base pose, move it to the retract pose (which is where the approach task
         starts); then run the pick-approach task, close the hand, run the pick-retract
         task (which returns the robot to the retract pose), and confirm the retract
         pose. Intermediate responses report the current phase.
+
         """
         ...
 
@@ -53,10 +88,45 @@ class LabwareServiceClient:
         PutLabware_IntermediateResponses, PutLabware_Responses
     ]:
         """
-          Place a labware: verify the robot is at the retract pose (not the base pose),
+
+        Place a labware: verify the robot is at the retract pose (not the base pose),
         run the approach task, open the hand, run the retract task (robot to the retract
         pose) and confirm the retract pose. The robot is left there — it is not returned
         to the base pose, so a PickLabware at this station can start straight away.
         Intermediate responses report the current phase.
+
+        """
+        ...
+
+    def MoveHand(
+        self, Position: int, *, metadata: Optional[Iterable[ClientMetadataInstance]] = None
+    ) -> ClientObservableCommandInstanceWithIntermediateResponses[MoveHand_IntermediateResponses, MoveHand_Responses]:
+        """
+
+        Move the hand (gripper) to a position, in device units: 0 is fully closed and the
+        configured open position (140 on this machine) fully open. Speed and grip force are
+        not parameters — they come from the motion configuration, so the hand never grips
+        with an arbitrary force. If the hand is found deactivated it is re-activated first,
+        but only when the jaws are open: re-activation strokes them, which would drop a held
+        labware. Reports the position reached and whether the jaws stopped short of the
+        commanded one, which is what holding an object looks like. Intermediate responses
+        report the current phase.
+
+        """
+        ...
+
+    def ActivateHand(
+        self, *, metadata: Optional[Iterable[ClientMetadataInstance]] = None
+    ) -> ClientObservableCommandInstanceWithIntermediateResponses[
+        ActivateHand_IntermediateResponses, ActivateHand_Responses
+    ]:
+        """
+
+        Re-activate the hand by toggling its activation signal off and on again, and wait
+        for the activated state. Writing the signal on alone does not recover a hand that is
+        stuck deactivated — only the falling edge does. Activation physically strokes the
+        jaws, so the command refuses unless they are fully open. Intermediate responses
+        report the current phase.
+
         """
         ...

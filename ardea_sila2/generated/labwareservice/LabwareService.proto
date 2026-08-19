@@ -4,13 +4,15 @@ import "SiLAFramework.proto";
 
 package sila2.jp.riken.ardea.labwareservice.v1;
 
-/* Ardea labware handling: pick and put a labware by orchestrating the DENSO robot (b-CAP tasks) and the KEYENCE hand (KV COM+). Each command runs the approach task, actuates the hand (close for pick, open for put), runs the retract task, and confirms the robot returned to the retract pose. Both commands end at the retract pose: PutLabware does not return the robot to the base pose, so a Pick following a Put does not have to undo that move. PickLabware may start at either the base or the retract pose (from the base pose it moves to the retract pose first); PutLabware requires the retract pose. Neither command moves the carriage. */
+/* Ardea labware handling, plus direct control of the two actuators it drives. PickLabware and PutLabware orchestrate the DENSO robot (b-CAP tasks) and the KEYENCE hand (KV COM+): each runs the approach task, actuates the hand (close for pick, open for put), runs the retract task, and confirms the robot returned to the retract pose. Both end at the retract pose: PutLabware does not return the robot to the base pose, so a Pick following a Put does not have to undo that move. PickLabware may start at either the base or the retract pose (from the base pose it moves to the retract pose first); PutLabware requires the retract pose. Neither command moves the carriage. MoveHand and ActivateHand drive the gripper on its own, and ToggleLight switches the machine light (a robot-controller variable). Those three are utilities for setup and debugging rather than labware handling; they live here to keep the server to one Ardea handling feature. */
 service LabwareService {
-  /* Pick a labware: verify the robot is at the base or the retract pose and, from
+  /* 
+      Pick a labware: verify the robot is at the base or the retract pose and, from
       the base pose, move it to the retract pose (which is where the approach task
       starts); then run the pick-approach task, close the hand, run the pick-retract
       task (which returns the robot to the retract pose), and confirm the retract
-      pose. Intermediate responses report the current phase. */
+      pose. Intermediate responses report the current phase.
+     */
   rpc PickLabware (sila2.jp.riken.ardea.labwareservice.v1.PickLabware_Parameters) returns (sila2.org.silastandard.CommandConfirmation) {}
   /* Monitor the state of PickLabware */
   rpc PickLabware_Info (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.org.silastandard.ExecutionInfo) {}
@@ -18,11 +20,13 @@ service LabwareService {
   rpc PickLabware_Intermediate (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.jp.riken.ardea.labwareservice.v1.PickLabware_IntermediateResponses) {}
   /* Retrieve result of PickLabware */
   rpc PickLabware_Result(sila2.org.silastandard.CommandExecutionUUID) returns (sila2.jp.riken.ardea.labwareservice.v1.PickLabware_Responses) {}
-  /* Place a labware: verify the robot is at the retract pose (not the base pose),
+  /* 
+      Place a labware: verify the robot is at the retract pose (not the base pose),
       run the approach task, open the hand, run the retract task (robot to the retract
       pose) and confirm the retract pose. The robot is left there — it is not returned
       to the base pose, so a PickLabware at this station can start straight away.
-      Intermediate responses report the current phase. */
+      Intermediate responses report the current phase.
+     */
   rpc PutLabware (sila2.jp.riken.ardea.labwareservice.v1.PutLabware_Parameters) returns (sila2.org.silastandard.CommandConfirmation) {}
   /* Monitor the state of PutLabware */
   rpc PutLabware_Info (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.org.silastandard.ExecutionInfo) {}
@@ -30,6 +34,44 @@ service LabwareService {
   rpc PutLabware_Intermediate (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.jp.riken.ardea.labwareservice.v1.PutLabware_IntermediateResponses) {}
   /* Retrieve result of PutLabware */
   rpc PutLabware_Result(sila2.org.silastandard.CommandExecutionUUID) returns (sila2.jp.riken.ardea.labwareservice.v1.PutLabware_Responses) {}
+  /* 
+      Move the hand (gripper) to a position, in device units: 0 is fully closed and the
+      configured open position (140 on this machine) fully open. Speed and grip force are
+      not parameters — they come from the motion configuration, so the hand never grips
+      with an arbitrary force. If the hand is found deactivated it is re-activated first,
+      but only when the jaws are open: re-activation strokes them, which would drop a held
+      labware. Reports the position reached and whether the jaws stopped short of the
+      commanded one, which is what holding an object looks like. Intermediate responses
+      report the current phase.
+     */
+  rpc MoveHand (sila2.jp.riken.ardea.labwareservice.v1.MoveHand_Parameters) returns (sila2.org.silastandard.CommandConfirmation) {}
+  /* Monitor the state of MoveHand */
+  rpc MoveHand_Info (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.org.silastandard.ExecutionInfo) {}
+  /* Retrieve intermediate responses of MoveHand */
+  rpc MoveHand_Intermediate (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.jp.riken.ardea.labwareservice.v1.MoveHand_IntermediateResponses) {}
+  /* Retrieve result of MoveHand */
+  rpc MoveHand_Result(sila2.org.silastandard.CommandExecutionUUID) returns (sila2.jp.riken.ardea.labwareservice.v1.MoveHand_Responses) {}
+  /* 
+      Re-activate the hand by toggling its activation signal off and on again, and wait
+      for the activated state. Writing the signal on alone does not recover a hand that is
+      stuck deactivated — only the falling edge does. Activation physically strokes the
+      jaws, so the command refuses unless they are fully open. Intermediate responses
+      report the current phase.
+     */
+  rpc ActivateHand (sila2.jp.riken.ardea.labwareservice.v1.ActivateHand_Parameters) returns (sila2.org.silastandard.CommandConfirmation) {}
+  /* Monitor the state of ActivateHand */
+  rpc ActivateHand_Info (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.org.silastandard.ExecutionInfo) {}
+  /* Retrieve intermediate responses of ActivateHand */
+  rpc ActivateHand_Intermediate (sila2.org.silastandard.CommandExecutionUUID) returns (stream sila2.jp.riken.ardea.labwareservice.v1.ActivateHand_IntermediateResponses) {}
+  /* Retrieve result of ActivateHand */
+  rpc ActivateHand_Result(sila2.org.silastandard.CommandExecutionUUID) returns (sila2.jp.riken.ardea.labwareservice.v1.ActivateHand_Responses) {}
+  /* Turn the machine light off if it is on and on if it is off, and report which it ended up as. The light is a boolean variable on the robot controller (read and written over b-CAP), not a PLC signal, and its name comes from the configuration. */
+  rpc ToggleLight (sila2.jp.riken.ardea.labwareservice.v1.ToggleLight_Parameters) returns (sila2.jp.riken.ardea.labwareservice.v1.ToggleLight_Responses) {}
+  /* 
+      Whether the machine light is currently on. Read so a client can act on the actual
+      state instead of guessing it from a blind ToggleLight.
+     */
+  rpc Get_LightIsOn (sila2.jp.riken.ardea.labwareservice.v1.Get_LightIsOn_Parameters) returns (sila2.jp.riken.ardea.labwareservice.v1.Get_LightIsOn_Responses) {}
 }
 
 /* Parameters for PickLabware */
@@ -58,4 +100,52 @@ message PutLabware_Responses {
 /* Intermediate responses of PutLabware */
 message PutLabware_IntermediateResponses {
   sila2.org.silastandard.String Phase = 1;  /* The current phase of the put sequence. */
+}
+
+/* Parameters for MoveHand */
+message MoveHand_Parameters {
+  sila2.org.silastandard.Integer Position = 1;  /* Target position in device units: 0 = fully closed .. open position = fully open. */
+}
+
+/* Responses of MoveHand */
+message MoveHand_Responses {
+  sila2.org.silastandard.Integer Position = 1;  /* The hand position reached (device units), read back after the move. */
+  sila2.org.silastandard.Boolean StoppedShort = 2;  /* True if the jaws stopped before the commanded position, i.e. something is held (grip bit D6002.6 = 0). */
+}
+
+/* Intermediate responses of MoveHand */
+message MoveHand_IntermediateResponses {
+  sila2.org.silastandard.String Phase = 1;  /* The current phase of the hand move. */
+}
+
+/* Parameters for ActivateHand */
+message ActivateHand_Parameters {
+}
+
+/* Responses of ActivateHand */
+message ActivateHand_Responses {
+  sila2.org.silastandard.Boolean Activated = 1;  /* True if the hand reported the activated state before the timeout. */
+}
+
+/* Intermediate responses of ActivateHand */
+message ActivateHand_IntermediateResponses {
+  sila2.org.silastandard.String Phase = 1;  /* The current phase of the activation. */
+}
+
+/* Parameters for ToggleLight */
+message ToggleLight_Parameters {
+}
+
+/* Responses of ToggleLight */
+message ToggleLight_Responses {
+  sila2.org.silastandard.Boolean IsOn = 1;  /* True if the light is on after the toggle. */
+}
+
+/* Parameters for LightIsOn */
+message Get_LightIsOn_Parameters {
+}
+
+/* Responses of LightIsOn */
+message Get_LightIsOn_Responses {
+  sila2.org.silastandard.Boolean LightIsOn = 1;  /* Whether the machine light is currently on. Read so a client can act on the actual state instead of guessing it from a blind ToggleLight. */
 }

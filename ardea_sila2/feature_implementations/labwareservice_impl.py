@@ -39,10 +39,17 @@ Grasp verification (only meaningful when gripping, i.e. at Pick time):
   per-command state is carried over from a previous Pick.
 Either raises GraspFailed. Both checks are skipped entirely when the server is
 started with --skip-grasp-check (``parent_server.verify_grasp`` is False).
+
+Three utilities for setup and debugging live here too, rather than in features of their
+own: ``MoveHand`` (drive the gripper to a position in device units, speed and force from
+the motion config), ``ActivateHand`` (the D5002.0 OFF->ON recovery toggle), and
+``ToggleLight``/``LightIsOn`` (the machine light -- a boolean variable on the **robot
+controller**, read and written over b-CAP; it is not a PLC signal).
 """
 
 from __future__ import annotations
 
+import threading
 import time
 from typing import TYPE_CHECKING
 
@@ -51,7 +58,9 @@ from bcap_sila2.bcap import (
     TaskAbnormalStopError,
     TaskTimeoutError,
     get_joint_angles,
+    read_variable,
     run_task,
+    write_variable,
 )
 from orinexception import ORiNException
 from sila2.server import MetadataDict, ObservableCommandInstanceWithIntermediateResponses
@@ -59,11 +68,16 @@ from sila2.server import MetadataDict, ObservableCommandInstanceWithIntermediate
 from kvcomplus_sila2 import kvcomplus
 
 from ..generated.labwareservice import (
+    ActivateHand_IntermediateResponses,
+    ActivateHand_Responses,
     ControllerConnectionError,
     GraspFailed,
     HandError,
     HandNotOpen,
+    InvalidHandPosition,
     LabwareServiceBase,
+    MoveHand_IntermediateResponses,
+    MoveHand_Responses,
     NoStationAtPosition,
     PickLabware_IntermediateResponses,
     PickLabware_Responses,
@@ -77,6 +91,8 @@ from ..generated.labwareservice import (
     RobotNotAtRetractPose,
     TaskAccessError,
     TaskExecutionTimeout,
+    ToggleLight_Responses,
+    VariableAccessError,
 )
 
 if TYPE_CHECKING:
@@ -98,6 +114,7 @@ HAND_FORCE = 5070
 HAND_CUR_POS = 6060           # D6060 hand current position
 CARRIAGE_CUR_POS = 6010       # D6010 carriage current position [mm] (2 words)
 _HAND_START_TIMEOUT_S = 5.0
+_HAND_ACTIVATE_OFF_S = 1.0     # how long D5002.0 stays OFF before the recovering edge
 _HAND_OPEN_TOL = 3            # tolerance [units] for "hand fully open" check
 # PutLabware precondition only: the hand is "closed on something" if its position is
 # not (near) fully open, i.e. current position <= open_position - _GRASP_MARGIN.
@@ -109,6 +126,9 @@ _ONE_CYCLE = 1                 # RunTask mode: run once and stop
 class LabwareServiceImpl(LabwareServiceBase):
     def __init__(self, parent_server: Server) -> None:
         super().__init__(parent_server=parent_server)
+        # Guards only the light's read-modify-write toggle. Deliberately not the server's
+        # operation_lock: switching a light is not motion and must not wait for a pick.
+        self._light_lock = threading.Lock()
 
     # ---- helpers ----
     def _plc(self):
@@ -152,28 +172,56 @@ class LabwareServiceImpl(LabwareServiceBase):
     def _hand_status(self) -> int:
         return self._kv(lambda: kvcomplus.read_word(self._plc(), DM, HAND_STATUS))
 
+    @staticmethod
+    def _is_activated(status: int) -> bool:
+        """True if D6002 shows the activated state (.0 and .4 and .5, i.e. 0x0031)."""
+        return bool(status & 1 and (status >> 4) & 1 and (status >> 5) & 1)
+
+    def _hand_open(self) -> bool:
+        """True if the jaws read as fully open (nothing held)."""
+        pos = self._kv(lambda: kvcomplus.read_word(self._plc(), DM, HAND_CUR_POS))
+        return abs(pos - self.parent_server.motion.hand.open_position) <= _HAND_OPEN_TOL
+
+    def _activate_hand(self) -> None:
+        """Drive D5002.0 OFF then ON and wait for the activated state.
+
+        The falling edge is the point: with D5002.0 already ON but the hand stuck at
+        D6002=0x0000/0x0001, writing ON again does nothing (2026-07-24, again 2026-08-17).
+        **This strokes the jaws** (140 -> ~10 -> 140 measured 2026-08-14), so every caller
+        must have checked that they are open -- a held labware would be dropped.
+        """
+        plc = self._plc()
+        h = self.parent_server.motion.hand
+        self._kv(lambda: kvcomplus.write_bit(plc, DM, HAND_WORD, BIT_HAND_ACTIVE, False))
+        time.sleep(_HAND_ACTIVATE_OFF_S)
+        self._kv(lambda: kvcomplus.write_bit(plc, DM, HAND_WORD, BIT_HAND_ACTIVE, True))
+        t0 = time.time()
+        while not self._is_activated(self._hand_status()):
+            if time.time() - t0 > h.move_timeout_s:
+                raise HandError("hand activation did not complete (D6002.0/.4/.5)")
+            time.sleep(0.3)
+
     def _hand_move(self, target: int) -> int:
         """Move the hand to ``target`` (activate if needed, write params, wait done).
 
         Used for both chuck (target=closed) and unchuck (target=open). Returns the
         in-position/grip bit D6002.6 sampled at the completion instant (bit7->1):
         0 = stopped short (gripping an object), 1 = reached the commanded position.
+
+        A deactivated hand is recovered **only with open jaws**: recovery strokes them,
+        so a Put (which starts holding a labware) is refused instead of dropping it.
         """
         plc = self._plc()
         h = self.parent_server.motion.hand
 
-        # activate (idempotent): D5002.0 ON, wait D6002.0/.4/.5
-        st = self._hand_status()
-        if not (st & 1 and (st >> 4) & 1 and (st >> 5) & 1):
-            self._kv(lambda: kvcomplus.write_bit(plc, DM, HAND_WORD, BIT_HAND_ACTIVE, True))
-            t0 = time.time()
-            while True:
-                st = self._hand_status()
-                if st & 1 and (st >> 4) & 1 and (st >> 5) & 1:
-                    break
-                if time.time() - t0 > h.move_timeout_s:
-                    raise HandError("hand activation did not complete (D6002.0/.4/.5)")
-                time.sleep(0.3)
+        if not self._is_activated(self._hand_status()):
+            if not self._hand_open():
+                raise HandNotOpen(
+                    "Hand is deactivated (D6002=0x%04X) and not fully open; re-activating "
+                    "would stroke the jaws and drop what is held. Put the labware down "
+                    "first, then run ActivateHand." % self._hand_status()
+                )
+            self._activate_hand()
 
         # write target/speed/force, then raise the move trigger
         self._kv(lambda: kvcomplus.write_word(plc, DM, HAND_TGT, int(target)))
@@ -354,3 +402,85 @@ class LabwareServiceImpl(LabwareServiceBase):
 
             instance.progress = 1.0
             return PutLabware_Responses(AtRetractPose=at_retract)
+
+    # ---- observable command: MoveHand (gripper on its own) ----
+    def MoveHand(
+        self,
+        Position: int,
+        *,
+        metadata: MetadataDict,
+        instance: ObservableCommandInstanceWithIntermediateResponses[MoveHand_IntermediateResponses],
+    ) -> MoveHand_Responses:
+        h = self.parent_server.motion.hand
+        target = int(Position)
+        if not (0 <= target <= h.open_position):
+            raise InvalidHandPosition(
+                f"Position {target} is outside 0..{h.open_position} (device units)."
+            )
+
+        def phase(name: str) -> None:
+            instance.send_intermediate_response(MoveHand_IntermediateResponses(Phase=name))
+
+        # Same lock as Pick/Put: the hand must not move while a pick/put owns it.
+        with self.parent_server.operation_lock:
+            instance.begin_execution()
+            phase(f"moving hand to {target} (speed {h.speed}, force {h.grip_force})")
+            grip_bit = self._hand_move(target)
+            reached = self._kv(lambda: kvcomplus.read_word(self._plc(), DM, HAND_CUR_POS))
+            phase(f"done at {reached}")
+            instance.progress = 1.0
+            return MoveHand_Responses(Position=reached, StoppedShort=grip_bit == 0)
+
+    # ---- observable command: ActivateHand ----
+    def ActivateHand(
+        self,
+        *,
+        metadata: MetadataDict,
+        instance: ObservableCommandInstanceWithIntermediateResponses[ActivateHand_IntermediateResponses],
+    ) -> ActivateHand_Responses:
+        def phase(name: str) -> None:
+            instance.send_intermediate_response(ActivateHand_IntermediateResponses(Phase=name))
+
+        with self.parent_server.operation_lock:
+            # Activation strokes the jaws, so refuse unless they are empty and open.
+            hand_pos = self._kv(lambda: kvcomplus.read_word(self._plc(), DM, HAND_CUR_POS))
+            open_pos = self.parent_server.motion.hand.open_position
+            if abs(hand_pos - open_pos) > _HAND_OPEN_TOL:
+                raise HandNotOpen(
+                    f"Hand is at {hand_pos} (open={open_pos}); activation strokes the jaws, "
+                    "so it is refused unless they are fully open."
+                )
+
+            instance.begin_execution()
+            phase("toggling D5002.0 OFF -> ON (the jaws will stroke)")
+            self._activate_hand()
+            phase("activated")
+            instance.progress = 1.0
+            return ActivateHand_Responses(Activated=True)
+
+    # ---- machine light (a robot-controller variable, not a PLC signal) ----
+    def _read_light(self) -> bool:
+        cfg = self.parent_server.config
+        try:
+            return bool(read_variable(cfg.controller, cfg.light.variable))
+        except OSError as e:
+            raise ControllerConnectionError(str(e))
+        except (ORiNException, RobotUnavailableError) as e:
+            raise VariableAccessError(str(e))
+
+    def get_LightIsOn(self, *, metadata: MetadataDict) -> bool:
+        return self._read_light()
+
+    def ToggleLight(self, *, metadata: MetadataDict) -> ToggleLight_Responses:
+        cfg = self.parent_server.config
+        # Read-modify-write, so serialise it: two clients toggling at once would
+        # otherwise both read the same state and one write would be lost.
+        with self._light_lock:
+            new_state = not self._read_light()
+            try:
+                write_variable(cfg.controller, cfg.light.variable, new_state)
+            except OSError as e:
+                raise ControllerConnectionError(str(e))
+            except (ORiNException, RobotUnavailableError) as e:
+                raise VariableAccessError(str(e))
+        return ToggleLight_Responses(IsOn=new_state)
