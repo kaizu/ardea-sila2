@@ -74,7 +74,7 @@ class RobotNotAtBasePose(DefinedExecutionError):
 class NoStationAtPosition(DefinedExecutionError):
     def __init__(self, message: Optional[str] = None):
         if message is None:
-            message = "No station is defined at the current carriage position, so Pick/Put cannot resolve which task pair to run."
+            message = "No station is defined at the current carriage position, or none there faces the way the arm does, so Pick/Put cannot resolve which task pair to run. The message names any station at that position facing the other way."
         super().__init__(LabwareServiceFeature.defined_execution_errors["NoStationAtPosition"], message=message)
 
 

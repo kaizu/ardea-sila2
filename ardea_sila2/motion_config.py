@@ -18,7 +18,9 @@ The carriage may move when the robot is at **any** of these four poses (base,
 retract, or either inverse pose); see ``MotionConfig.at_movable_pose``.
 
 Other sections: ``[carriage]`` (travel params), ``[hand]`` (gripper params),
-``[stations.<id>]`` (labware stations: position + approach/retract task pair), and
+``[stations.<id>]`` (labware stations: position + approach/retract task pair; the rail is
+served from both sides, so two stations may share a position when their ``direction``
+differs -- ``(position_mm, direction)`` is the unique key), and
 ``[common].return_home`` (the shared retract->base task). Since PutLabware stops at the
 retract pose, ``return_home`` is no longer used by Pick/Put: it is what
 RobotOrientationService.ReturnHome runs (see ``home_path``). ``return_home_reverse`` is
@@ -229,15 +231,42 @@ class MotionConfig:
             or self.inverse_retract_pose.matches(curjnt)
         )
 
-    def station_at(self, position_mm: int) -> "tuple[str, StationConfig] | None":
-        """Return (station_id, station) whose position matches ``position_mm``, else None.
+    def facing_of(self, curjnt: list[float]) -> "str | None":
+        """Which way the arm faces at its current pose: "forward", "reverse", or None.
 
-        Station positions are unique (enforced at load), so at most one matches. This
-        is how Pick/Put resolve the station from the current carriage position while
-        they take no StationId argument yet.
+        None means it is at no known pose. Both pose families count: the base and retract
+        poses face forward, their 180°-turned counterparts reverse.
         """
-        for sid, st in self.stations.items():
-            if st.position_mm == position_mm:
+        if self.base_pose.matches(curjnt) or self.retract_pose.matches(curjnt):
+            return "forward"
+        if self.inverse_base_pose.matches(curjnt) or self.inverse_retract_pose.matches(curjnt):
+            return "reverse"
+        return None
+
+    def stations_at(self, position_mm: int) -> "list[tuple[str, StationConfig]]":
+        """Every station at ``position_mm``, in configuration order.
+
+        The rail has stations on both sides ("駆動側" / "従動側"), so one carriage
+        position can serve two of them -- one per facing.
+        """
+        return [(sid, st) for sid, st in self.stations.items() if st.position_mm == position_mm]
+
+    def station_at(
+        self, position_mm: int, direction: "str | None" = None
+    ) -> "tuple[str, StationConfig] | None":
+        """Return the station at ``position_mm`` facing ``direction``, else None.
+
+        ``(position_mm, direction)`` is unique (enforced at load), so at most one matches.
+        This is how Pick/Put resolve the station while they take no StationId argument:
+        the carriage position says where, and the arm's current facing says which side.
+        With ``direction`` omitted, only an unambiguous position resolves -- two stations
+        there return None rather than a guess.
+        """
+        here = self.stations_at(position_mm)
+        if direction is None:
+            return here[0] if len(here) == 1 else None
+        for sid, st in here:
+            if st.direction == direction:
                 return sid, st
         return None
 
@@ -315,7 +344,7 @@ def _build_stations(data: Any, carriage: CarriageConfig) -> dict[str, StationCon
         raise MotionConfigError("At least one [stations.<id>] must be defined.")
     known = {f.name for f in dataclasses.fields(StationConfig)}
     stations: dict[str, StationConfig] = {}
-    positions: dict[int, str] = {}
+    positions: dict[tuple[int, str], str] = {}   # (position_mm, direction) -> station id
     for sid, sdata in data.items():
         if not isinstance(sdata, dict):
             raise MotionConfigError(f"[stations.{sid}] must be a table.")
@@ -353,12 +382,16 @@ def _build_stations(data: Any, carriage: CarriageConfig) -> dict[str, StationCon
             raise MotionConfigError(
                 f"[stations.{sid}].grip must be one of {STATION_GRIPS} (got {grip!r})."
             )
-        if pos in positions:
+        # The rail is served from both sides, so a position may repeat as long as the two
+        # stations face opposite ways: Pick/Put resolve one by position **and** the arm's
+        # current facing, so (position, direction) is what has to be unique.
+        if (pos, direction) in positions:
             raise MotionConfigError(
-                f"[stations.{sid}].position_mm {pos} duplicates [stations.{positions[pos]}]; "
-                "station positions must be unique (Pick/Put resolve by current carriage position)."
+                f"[stations.{sid}] duplicates [stations.{positions[(pos, direction)]}]: both are "
+                f"at {pos} mm facing {direction}. A position may be shared only by stations "
+                "facing opposite ways (Pick/Put resolve by position plus the arm's facing)."
             )
-        positions[pos] = sid
+        positions[(pos, direction)] = sid
         stations[sid] = StationConfig(
             position_mm=pos,
             pick_script_a=str(sdata["pick_script_a"]),

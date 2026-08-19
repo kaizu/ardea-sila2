@@ -181,12 +181,38 @@ class MotionOps:
     def at_movable_pose(self) -> bool:
         return self.motion.at_movable_pose(self.joint_angles())
 
+    def current_facing(self) -> "str | None":
+        """Which way the arm faces now ("forward"/"reverse"), or None at no known pose."""
+        return self.motion.facing_of(self.joint_angles())
+
     def station_here(self) -> "tuple[str, StationConfig]":
-        """Resolve the station from the current carriage position, or raise."""
+        """Resolve the station from the carriage position **and** the arm's facing.
+
+        The rail is served from both sides, so one position can hold two stations facing
+        opposite ways; which of them a Pick or Put means is decided by the way the arm is
+        already turned. Raising rather than guessing is the point: turning the arm is the
+        client's decision (Transfer does it, a bare Pick does not).
+        """
         pos = self.carriage_position()
-        resolved = self.motion.station_at(pos)
-        if resolved is None:
+        here = self.motion.stations_at(pos)
+        if not here:
             raise NoStationHere(f"No station defined at carriage position {pos} mm.")
+
+        facing = self.current_facing()
+        if facing is None:
+            raise NotAtKnownPose(
+                "Robot is at none of the base/retract/inverse-base/inverse-retract poses, "
+                f"so which of the stations at {pos} mm is meant cannot be decided."
+            )
+
+        resolved = self.motion.station_at(pos, facing)
+        if resolved is None:
+            others = ", ".join(f"{sid} ({st.direction})" for sid, st in here)
+            raise NoStationHere(
+                f"No station at {pos} mm faces {facing}; there is {others}. "
+                "Turn the arm to that facing first (SetOrientation), or use Transfer, "
+                "which turns it for you."
+            )
         return resolved
 
     def station_by_name(self, name: str) -> "tuple[str, StationConfig]":
@@ -397,16 +423,12 @@ class MotionOps:
 
     def face(self, direction: str, phase: Phase = no_phase) -> None:
         """Turn the arm to face ``direction`` only if it does not already."""
-        angles = self.joint_angles()
-        if self.motion.orientation_target(angles, direction) is None:
+        facing = self.current_facing()
+        if facing is None:
             raise NotAtKnownPose(
                 "Robot is at none of the base/retract/inverse-base/inverse-retract poses."
             )
-        facing_reverse = (
-            self.motion.inverse_base_pose.matches(angles)
-            or self.motion.inverse_retract_pose.matches(angles)
-        )
-        if facing_reverse == (direction == "reverse"):
+        if facing == direction:
             return
         self.set_orientation(direction, phase)
 

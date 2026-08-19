@@ -64,6 +64,10 @@ return_home_reverse = "InverseBasePosition"  # inverse retract -> inverse base (
 #  added. While it is commented out, 0 mm is NOT a station -- Pick/Put there raise
 #  NoStationAtPosition, and StationNames omits Base1.
 # direction = arm facing: "forward" (normal poses) | "reverse" (180°-turned inverse poses).
+# ★The rail is served from BOTH SIDES, so two stations may share one position_mm as long as
+#  their direction differs -- the (position_mm, direction) pair is what must be unique.
+#  PickLabware/PutLabware resolve the station from the carriage position PLUS the way the
+#  arm is already turned (they never turn it); Transfer takes names and turns as needed.
 # grip = plate grip orientation: "short"-edge | "long"-edge. Selects Pick's chuck target
 # (short -> closed_position, long -> closed_position_long).
 # [stations.Base1]                       # labware station "Base1" -- tasks not on controller

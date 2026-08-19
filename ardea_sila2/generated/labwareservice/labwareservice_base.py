@@ -107,11 +107,14 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
     ) -> PickLabware_Responses:
         """
 
-        Pick a labware: verify the robot is at the base or the retract pose and, from
-        the base pose, move it to the retract pose (which is where the approach task
-        starts); then run the pick-approach task, close the hand, run the pick-retract
-        task (which returns the robot to the retract pose), and confirm the retract
-        pose. Intermediate responses report the current phase.
+        Pick a labware from the station at the current carriage position, on the side the
+        arm already faces (the rail is served from both sides, so a position can hold two
+        stations facing opposite ways; this command never turns the arm, it works the side
+        it is pointed at). Verify the robot is at that direction's base or retract pose and,
+        from the base pose, move it to the retract pose (which is where the approach task
+        starts); then run the pick-approach task, close the hand, run the pick-retract task
+        (which returns the robot to the retract pose), and confirm the retract pose.
+        Intermediate responses report the current phase.
 
 
 
@@ -134,11 +137,13 @@ class LabwareServiceBase(FeatureImplementationBase, ABC):
     ) -> PutLabware_Responses:
         """
 
-        Place a labware: verify the robot is at the retract pose (not the base pose),
-        run the approach task, open the hand, run the retract task (robot to the retract
-        pose) and confirm the retract pose. The robot is left there — it is not returned
-        to the base pose, so a PickLabware at this station can start straight away.
-        Intermediate responses report the current phase.
+        Place a labware on the station at the current carriage position, on the side the arm
+        already faces (see PickLabware: a position can hold two stations, and this command
+        does not turn the arm either). Verify the robot is at that direction's retract pose
+        (not the base pose), run the approach task, open the hand, run the retract task
+        (robot to the retract pose) and confirm the retract pose. The robot is left there —
+        it is not returned to the base pose, so a PickLabware at this station can start
+        straight away. Intermediate responses report the current phase.
 
 
 
